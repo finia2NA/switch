@@ -8,6 +8,15 @@ struct WindowInfo {
 
 enum WindowEnumerator {
     static func list() -> [WindowInfo] {
-        return []
+        let opts: CGWindowListOption = [.optionOnScreenOnly, .excludeDesktopElements]
+        guard let raw = CGWindowListCopyWindowInfo(opts, kCGNullWindowID) as? [[String: Any]] else {
+            return []
+        }
+        return raw.compactMap { dict in
+            guard let id = dict[kCGWindowNumber as String] as? CGWindowID,
+                  let pid = dict[kCGWindowOwnerPID as String] as? pid_t else { return nil }
+            let title = (dict[kCGWindowName as String] as? String) ?? ""
+            return WindowInfo(id: id, title: title, pid: pid)
+        }
     }
 }
