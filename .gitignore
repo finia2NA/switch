@@ -4,3 +4,5 @@
 # Xcode
 DerivedData/
 *.xcuserstate
+*.moved-aside
+xcuserdata/
