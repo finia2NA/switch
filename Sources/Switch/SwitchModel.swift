@@ -6,7 +6,9 @@ final class SwitchModel: ObservableObject {
     @Published var selected: Int = 0
 
     func refresh() {
+        let t = CFAbsoluteTimeGetCurrent()
         windows = WindowEnumerator.list()
+        print("[model] refresh \(windows.count) windows in \((CFAbsoluteTimeGetCurrent() - t) * 1000)ms")
         if selected >= windows.count { selected = 0 }
     }
 
