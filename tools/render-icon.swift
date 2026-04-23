@@ -4,6 +4,7 @@
 // front window getting macOS-style traffic-light dots.
 //
 // Run: swift tools/render-icon.swift > tools/icon-1024.png
+// Then: bash tools/install-app-icon.sh
 
 import AppKit
 
