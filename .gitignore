@@ -6,3 +6,6 @@ DerivedData/
 *.xcuserstate
 *.moved-aside
 xcuserdata/
+
+# SwiftPM
+.build/
