@@ -4,6 +4,13 @@ struct SwitchView: View {
     @ObservedObject var model: SwitchModel
     var onCommit: () -> Void = {}
 
+    /// Cursor must move at least this far from the panel-open position before
+    /// a hover counts as intentional. Was: a static cursor parked over a tile
+    /// at panel-open hijacked the keyboard's default selection.
+    private static let hoverThreshold: CGFloat = 10
+
+    @State private var openCursor: CGPoint?
+
     private var grid: [GridItem] {
         Array(repeating: GridItem(.flexible(), spacing: Design.tilePadding), count: Design.columns)
     }
@@ -20,6 +27,15 @@ struct SwitchView: View {
                                     model.selected = idx
                                     onCommit()
                                 }
+                                .onHover { inside in
+                                    guard inside else { return }
+                                    if let open = openCursor,
+                                       let cur = NSEvent.mouseLocation as CGPoint?,
+                                       hypot(cur.x - open.x, cur.y - open.y) < Self.hoverThreshold {
+                                        return
+                                    }
+                                    model.selected = idx
+                                }
                         }
                     }
                     .padding(Design.tilePadding)
@@ -28,6 +44,7 @@ struct SwitchView: View {
             }
         }
         .frame(width: Design.panelWidth, height: Design.panelHeight)
+        .onAppear { openCursor = NSEvent.mouseLocation }
         .onKeyPress(.tab) { model.advance(); return .handled }
         .onKeyPress(.leftArrow) { model.back(); return .handled }
         .onKeyPress(.rightArrow) { model.advance(); return .handled }
@@ -40,7 +57,6 @@ struct SwitchView: View {
             if !model.filter.isEmpty {
                 Text(model.filter)
                     .font(.system(.callout, design: .monospaced))
-                    .foregroundStyle(.primary)
                 Spacer()
             } else {
                 Spacer()
