@@ -1,0 +1,51 @@
+import AppKit
+import SwiftUI
+import Combine
+
+@MainActor
+final class SwitchPreferences: ObservableObject {
+    static let shared = SwitchPreferences()
+
+    enum AccentChoice: String, CaseIterable, Identifiable {
+        case system, rose, blue, mint, peach, lavender, monochrome
+        var id: String { rawValue }
+        var label: String {
+            switch self {
+            case .system: return "System"
+            case .rose: return "Rose"
+            case .blue: return "Blue"
+            case .mint: return "Mint"
+            case .peach: return "Peach"
+            case .lavender: return "Lavender"
+            case .monochrome: return "Mono"
+            }
+        }
+        var color: Color {
+            switch self {
+            case .system: return Color.accentColor
+            case .rose: return Color(red: 0.741, green: 0.514, blue: 0.467)
+            case .blue: return Color(red: 0.40, green: 0.62, blue: 0.92)
+            case .mint: return Color(red: 0.42, green: 0.80, blue: 0.69)
+            case .peach: return Color(red: 0.98, green: 0.69, blue: 0.49)
+            case .lavender: return Color(red: 0.66, green: 0.58, blue: 0.86)
+            case .monochrome: return Color(white: 0.86)
+            }
+        }
+    }
+
+    @Published var accent: AccentChoice {
+        didSet { UserDefaults.standard.set(accent.rawValue, forKey: accentKey) }
+    }
+
+    @Published var showCrossSpace: Bool {
+        didSet { UserDefaults.standard.set(showCrossSpace, forKey: crossSpaceKey) }
+    }
+
+    private let accentKey = "switch.accent"
+    private let crossSpaceKey = "switch.showCrossSpace"
+
+    private init() {
+        accent = AccentChoice(rawValue: UserDefaults.standard.string(forKey: accentKey) ?? "") ?? .system
+        showCrossSpace = (UserDefaults.standard.object(forKey: crossSpaceKey) as? Bool) ?? true
+    }
+}

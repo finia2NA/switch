@@ -119,8 +119,8 @@ final class SwitcherWindow: NSPanel {
         isOpaque = false
         backgroundColor = .clear
         hasShadow = true
-        level = .popUpMenu
-        collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle, .stationary]
+        level = .floating
+        collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle]
         isMovable = false
         isReleasedWhenClosed = false
         hidesOnDeactivate = false
@@ -137,6 +137,9 @@ final class SwitcherWindow: NSPanel {
     override var canBecomeMain: Bool { false }
 
     func present() {
+        // Re-asserted every present so the panel migrates across Spaces.
+        collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle]
+
         let cursor = NSEvent.mouseLocation
         let screen = NSScreen.screens.first(where: { NSMouseInRect(cursor, $0.frame, false) })
             ?? NSScreen.main

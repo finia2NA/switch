@@ -55,16 +55,61 @@ final class SettingsModel: ObservableObject {
 
 struct SettingsView: View {
     @StateObject private var model = SettingsModel()
+    @ObservedObject private var prefs = SwitchPreferences.shared
     @State private var rejectMessage: String?
 
     var body: some View {
         TabView {
             generalTab
                 .tabItem { Label("General", systemImage: "gear") }
+            appearanceTab
+                .tabItem { Label("Appearance", systemImage: "paintbrush") }
             aboutTab
                 .tabItem { Label("About", systemImage: "info.circle") }
         }
-        .frame(width: 480, height: 360)
+        .frame(width: 480, height: 400)
+    }
+
+    private var appearanceTab: some View {
+        Form {
+            Section("Accent color") {
+                HStack(spacing: 12) {
+                    ForEach(SwitchPreferences.AccentChoice.allCases) { choice in
+                        Button {
+                            prefs.accent = choice
+                        } label: {
+                            Circle()
+                                .fill(choice.color)
+                                .frame(width: 26, height: 26)
+                                .overlay(
+                                    Circle().stroke(
+                                        prefs.accent == choice ? Color.primary : Color.secondary.opacity(0.3),
+                                        lineWidth: prefs.accent == choice ? 2 : 1
+                                    )
+                                )
+                        }
+                        .buttonStyle(.plain)
+                        .help(choice.label)
+                    }
+                }
+                .padding(.vertical, 4)
+                Text("Affects the selection highlight and accent details. System follows your macOS accent.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("Windows") {
+                Toggle(isOn: $prefs.showCrossSpace) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Show windows from all Spaces")
+                        Text("When off, only windows on your current Space appear. Cross-Space windows still get a badge when shown.")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+        }
+        .formStyle(.grouped)
     }
 
     private var generalTab: some View {

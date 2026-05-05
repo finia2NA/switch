@@ -161,6 +161,24 @@ struct SwitchView: View {
                         .shadow(color: .black.opacity(0.35), radius: 4, x: 0, y: 1)
                         .padding(7)
                 }
+
+                if window.isCrossSpace {
+                    HStack(spacing: 0) {
+                        Spacer()
+                        VStack {
+                            Spacer()
+                            Text("OTHER SPACE")
+                                .font(.system(size: 9, weight: .semibold))
+                                .tracking(0.5)
+                                .foregroundStyle(.white.opacity(0.85))
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 3)
+                                .background(.ultraThinMaterial)
+                                .clipShape(Capsule())
+                                .padding(7)
+                        }
+                    }
+                }
             }
 
             HStack(spacing: 6) {
@@ -188,7 +206,7 @@ struct SwitchView: View {
                     Color.white.opacity(0.06)
                 }
                 if selected {
-                    Color.accentColor.opacity(0.22)
+                    SwitchPreferences.shared.accent.color.opacity(0.22)
                         .matchedGeometryEffect(id: "selectionBG", in: selectionNS)
                 }
             }
@@ -198,7 +216,7 @@ struct SwitchView: View {
             ZStack {
                 if selected {
                     RoundedRectangle(cornerRadius: 9, style: .continuous)
-                        .stroke(Color.accentColor.opacity(0.7), lineWidth: 1)
+                        .stroke(SwitchPreferences.shared.accent.color.opacity(0.7), lineWidth: 1)
                         .matchedGeometryEffect(id: "selectionRing", in: selectionNS)
                 }
             }
