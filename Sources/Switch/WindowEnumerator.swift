@@ -68,16 +68,6 @@ enum WindowEnumerator {
         var seenIDs: Set<CGWindowID> = []
         for d in raw {
             let appName = d[kCGWindowOwnerName as String] as? String ?? ""
-            // Diagnostic log for the reported Chrome-windows-not-appearing bug.
-            // Console.app filter: subsystem=Switch, prefix [chrome-debug].
-            if appName.lowercased().contains("chrome") {
-                let layer = d[kCGWindowLayer as String] as? Int ?? -999
-                let alpha = d[kCGWindowAlpha as String] as? Double ?? -1
-                let title = d[kCGWindowName as String] as? String ?? ""
-                let bd = d[kCGWindowBounds as String] as? [String: CGFloat] ?? [:]
-                NSLog("[chrome-debug] app='\(appName)' layer=\(layer) alpha=\(alpha) title='\(title)' bounds=\(Int(bd["Width"] ?? 0))x\(Int(bd["Height"] ?? 0))")
-            }
-
             guard let layer = d[kCGWindowLayer as String] as? Int, layer == 0 else { continue }
             guard let alpha = d[kCGWindowAlpha as String] as? Double, alpha > 0 else { continue }
             guard let id = d[kCGWindowNumber as String] as? CGWindowID else { continue }

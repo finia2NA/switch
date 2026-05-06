@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Build, sign, notarize, staple, and package Switch for distribution.
-# Usage: scripts/release.sh <version>   (e.g. 0.1.0)
+# Usage: scripts/release.sh <version> [build]
+#   <version>  CFBundleShortVersionString, e.g. 0.1.5
+#   [build]    CFBundleVersion. Defaults to current value in Info.plist + 1.
 
 set -euo pipefail
 
@@ -8,8 +10,9 @@ PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$PROJECT_DIR"
 
 VERSION="${1:-}"
+BUILD_NUMBER="${2:-}"
 if [[ -z "$VERSION" ]]; then
-    echo "usage: $0 <version>  (e.g. 0.1.0)"
+    echo "usage: $0 <version> [build]  (e.g. 0.1.5 4)"
     exit 1
 fi
 
@@ -22,6 +25,16 @@ EXPORT_DIR="$BUILD_DIR/export"
 APP_PATH="$EXPORT_DIR/$APP_NAME.app"
 DMG_PATH="$BUILD_DIR/$APP_NAME-$VERSION.dmg"
 DMG_STAGE="$BUILD_DIR/dmg-stage"
+INFO_PLIST="$PROJECT_DIR/Sources/$APP_NAME/Resources/Info.plist"
+
+if [[ -z "$BUILD_NUMBER" ]]; then
+    CURRENT_BUILD=$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$INFO_PLIST")
+    BUILD_NUMBER=$((CURRENT_BUILD + 1))
+fi
+
+echo "==> Stamping Info.plist: version=$VERSION build=$BUILD_NUMBER"
+/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$INFO_PLIST"
+/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" "$INFO_PLIST"
 
 echo "==> Cleaning build dir"
 rm -rf "$BUILD_DIR"
