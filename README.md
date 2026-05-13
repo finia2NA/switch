@@ -4,10 +4,10 @@ A keyboard-driven window switcher for macOS.
 
 → [switch-dev.sanyamgarg.com](https://switch-dev.sanyamgarg.com)
 
-- ⌘-Tab cycles all windows
+- ⌘-Tab cycles all windows on the current Space
 - ⌥-` cycles within the current app
 - type to filter inline
-- works across Spaces with MRU ordering
+- MRU ordering
 
 Notarized by Apple. macOS 14+. Free.
 
