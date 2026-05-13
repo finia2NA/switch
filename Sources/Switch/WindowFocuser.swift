@@ -63,6 +63,12 @@ enum WindowFocuser {
     }
 }
 
+enum AppCloser {
+    static func close(_ window: WindowInfo) {
+        NSRunningApplication(processIdentifier: window.pid)?.terminate()
+    }
+}
+
 enum WindowCloser {
     /// Sends a close action to the AX window matching `window`. Best-effort.
     static func close(_ window: WindowInfo) {

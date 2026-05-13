@@ -11,6 +11,7 @@ final class HotkeyManager {
     var onCommit: (() -> Void)?
     var onCancel: (() -> Void)?
     var onCloseSelected: (() -> Void)?
+    var onCloseSelectedApp: (() -> Void)?
     var onHideSelected: (() -> Void)?
     var onNavigate: ((Direction) -> Void)?
     var onPickIndex: ((Int) -> Void)?
@@ -31,6 +32,7 @@ final class HotkeyManager {
     private static let kcDownArrow: CGKeyCode = 125
     private static let kcUpArrow: CGKeyCode = 126
     private static let kcW: CGKeyCode = 13
+    private static let kcQ: CGKeyCode = 12
     private static let kcH: CGKeyCode = 4
     private static let kcDigits: [CGKeyCode] = [18, 19, 20, 21, 23, 22, 26, 28, 25]
 
@@ -175,6 +177,12 @@ final class HotkeyManager {
                 if cmd && kc == Self.kcW {
                     DispatchQueue.main.async { [weak self] in
                         self?.onCloseSelected?()
+                    }
+                    return nil
+                }
+                if cmd && kc == Self.kcQ {
+                    DispatchQueue.main.async { [weak self] in
+                        self?.onCloseSelectedApp?()
                     }
                     return nil
                 }

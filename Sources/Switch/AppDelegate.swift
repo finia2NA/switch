@@ -12,6 +12,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var hotkeyStarted = false
     private var focusTrackerStarted = false
     private var permsTimer: Timer?
+    private var pendingPresent: DispatchWorkItem?
+    private static let quickFlipWindow: TimeInterval = 0.13
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -20,41 +22,54 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let window = SwitcherWindow(model: model)
         let hotkey = HotkeyManager()
 
-        hotkey.onArm = { mode in
+        hotkey.onArm = { [weak self] mode in
             model.arm(mode)
-            window.present()
+            self?.schedulePresent(window: window)
         }
-        hotkey.onAdvance = { reverse in
+        hotkey.onAdvance = { [weak self] reverse in
+            self?.presentNowIfPending(window: window)
             model.advance(reverse: reverse)
         }
-        let commitAndDismiss: () -> Void = {
+        let commitAndDismiss: () -> Void = { [weak self] in
+            self?.cancelPendingPresent()
             model.commit()
             window.dismiss()
         }
         hotkey.onCommit = commitAndDismiss
         model.commitAndDismiss = commitAndDismiss
-        let cancelAndDismiss: () -> Void = {
+        let cancelAndDismiss: () -> Void = { [weak self] in
+            self?.cancelPendingPresent()
             model.cancel()
             window.dismiss()
         }
         hotkey.onCancel = cancelAndDismiss
         model.cancelAndDismiss = cancelAndDismiss
-        hotkey.onCloseSelected = {
+        hotkey.onCloseSelected = { [weak self] in
+            self?.presentNowIfPending(window: window)
             model.closeSelected()
         }
-        hotkey.onHideSelected = {
+        hotkey.onCloseSelectedApp = { [weak self] in
+            self?.presentNowIfPending(window: window)
+            model.closeSelectedApp()
+        }
+        hotkey.onHideSelected = { [weak self] in
+            self?.presentNowIfPending(window: window)
             model.hideSelected()
         }
-        hotkey.onNavigate = { direction in
+        hotkey.onNavigate = { [weak self] direction in
+            self?.presentNowIfPending(window: window)
             model.navigate(direction: direction)
         }
-        hotkey.onPickIndex = { index in
+        hotkey.onPickIndex = { [weak self] index in
+            self?.presentNowIfPending(window: window)
             model.pickIndex(index)
         }
-        hotkey.onFilterAppend = { c in
+        hotkey.onFilterAppend = { [weak self] c in
+            self?.presentNowIfPending(window: window)
             model.appendFilter(c)
         }
-        hotkey.onFilterBackspace = {
+        hotkey.onFilterBackspace = { [weak self] in
+            self?.presentNowIfPending(window: window)
             model.backspaceFilter()
         }
 
@@ -92,6 +107,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self.startFocusTrackerIfNeeded()
             }
         }
+    }
+
+    private func schedulePresent(window: SwitcherWindow) {
+        pendingPresent?.cancel()
+        let work = DispatchWorkItem { [weak self, weak window] in
+            self?.pendingPresent = nil
+            window?.present()
+        }
+        pendingPresent = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.quickFlipWindow, execute: work)
+    }
+
+    private func presentNowIfPending(window: SwitcherWindow) {
+        guard let pending = pendingPresent else { return }
+        pending.cancel()
+        pendingPresent = nil
+        window.present()
+    }
+
+    private func cancelPendingPresent() {
+        pendingPresent?.cancel()
+        pendingPresent = nil
     }
 
     private func startHotkeyIfNeeded() {

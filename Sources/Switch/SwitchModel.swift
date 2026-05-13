@@ -154,6 +154,13 @@ final class SwitchModel: ObservableObject {
         commitAndDismiss?()
     }
 
+    func closeSelectedApp() {
+        let list = filteredWindows
+        guard list.indices.contains(selected) else { return }
+        AppCloser.close(list[selected])
+        cancelAndDismiss?()
+    }
+
     func hideSelected() {
         let list = filteredWindows
         guard list.indices.contains(selected) else { return }

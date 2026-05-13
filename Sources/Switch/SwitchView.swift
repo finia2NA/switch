@@ -98,6 +98,7 @@ struct SwitchView: View {
             hint("←↑↓→", "navigate")
             hint("1-9", "pick")
             hint("⌘W", "close")
+            hint("⌘Q", "quit")
             hint("⌘H", "hide")
             hint("type", "filter")
             hint("esc", "cancel")
