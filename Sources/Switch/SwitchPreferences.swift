@@ -41,11 +41,17 @@ final class SwitchPreferences: ObservableObject {
         didSet { UserDefaults.standard.set(showCrossSpace, forKey: crossSpaceKey) }
     }
 
+    @Published var stickyMode: Bool {
+        didSet { UserDefaults.standard.set(stickyMode, forKey: SwitchPreferences.stickyModeKey) }
+    }
+
     private let accentKey = "switch.accent"
     private let crossSpaceKey = "switch.showCrossSpace"
+    static let stickyModeKey = "switch.stickyMode"
 
     private init() {
         accent = AccentChoice(rawValue: UserDefaults.standard.string(forKey: accentKey) ?? "") ?? .system
         showCrossSpace = (UserDefaults.standard.object(forKey: crossSpaceKey) as? Bool) ?? true
+        stickyMode = UserDefaults.standard.bool(forKey: SwitchPreferences.stickyModeKey)
     }
 }

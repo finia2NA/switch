@@ -128,6 +128,17 @@ struct SettingsView: View {
                 }
             }
 
+            Section("Behavior") {
+                Toggle(isOn: $prefs.stickyMode) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Sticky picker")
+                        Text("Release ⌘ to leave the picker open. Press Return to switch, Esc to cancel.")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+
             Section("Hotkeys") {
                 hotkeyEditor(label: "All windows", binding: model.allWindows) { b in
                     if let msg = HotkeyValidator.reject(keyCode: b.keyCode, flags: b.cgFlags) {

@@ -26,6 +26,7 @@ final class HotkeyManager {
     private var healthTimer: Timer?
 
     private static let kcEscape: CGKeyCode = 53
+    private static let kcReturn: CGKeyCode = 36
     private static let kcDelete: CGKeyCode = 51
     private static let kcLeftArrow: CGKeyCode = 123
     private static let kcRightArrow: CGKeyCode = 124
@@ -169,6 +170,13 @@ final class HotkeyManager {
                     }
                     return nil
                 }
+                if kc == Self.kcReturn {
+                    DispatchQueue.main.async { [weak self] in
+                        self?.armed = nil
+                        self?.onCommit?()
+                    }
+                    return nil
+                }
                 if kc == Self.kcDelete {
                     DispatchQueue.main.async { [weak self] in
                         self?.onFilterBackspace?()
@@ -215,15 +223,20 @@ final class HotkeyManager {
         }
 
         if type == .flagsChanged {
+            let sticky = UserDefaults.standard.bool(forKey: SwitchPreferences.stickyModeKey)
             if armed == .allWindows && !HotkeyConfig.shared.allWindows.modifiersHeld(flags) {
-                DispatchQueue.main.async { [weak self] in
-                    self?.armed = nil
-                    self?.onCommit?()
+                if !sticky {
+                    DispatchQueue.main.async { [weak self] in
+                        self?.armed = nil
+                        self?.onCommit?()
+                    }
                 }
             } else if armed == .currentApp && !HotkeyConfig.shared.currentApp.modifiersHeld(flags) {
-                DispatchQueue.main.async { [weak self] in
-                    self?.armed = nil
-                    self?.onCommit?()
+                if !sticky {
+                    DispatchQueue.main.async { [weak self] in
+                        self?.armed = nil
+                        self?.onCommit?()
+                    }
                 }
             }
         }
