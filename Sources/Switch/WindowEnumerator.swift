@@ -9,6 +9,7 @@ struct WindowInfo: Identifiable, Hashable {
     let title: String
     let bounds: CGRect
     var isCrossSpace: Bool = false
+    var isMinimized: Bool = false
 }
 
 enum WindowEnumerator {
@@ -67,6 +68,7 @@ enum WindowEnumerator {
 
     private static func filterAXVisible(_ candidates: [WindowInfo]) -> [WindowInfo] {
         var visibleIDs: Set<CGWindowID> = []
+        var minimizedIDs: Set<CGWindowID> = []
         var pidsScanned: Set<pid_t> = []
         for w in candidates {
             if pidsScanned.contains(w.pid) { continue }
@@ -79,10 +81,21 @@ enum WindowEnumerator {
                 var id: CGWindowID = 0
                 if _AXUIElementGetWindow(ax, &id) == .success, id != 0 {
                     visibleIDs.insert(id)
+                    var minRef: CFTypeRef?
+                    if AXUIElementCopyAttributeValue(ax, kAXMinimizedAttribute as CFString, &minRef) == .success,
+                       let isMin = minRef as? Bool, isMin {
+                        minimizedIDs.insert(id)
+                    }
                 }
             }
         }
-        return candidates.filter { visibleIDs.contains($0.id) }
+        return candidates.filter { visibleIDs.contains($0.id) }.map { w in
+            guard minimizedIDs.contains(w.id) else { return w }
+            var w = w
+            w.isMinimized = true
+            w.isCrossSpace = false
+            return w
+        }
     }
 
     private static func enumerate(option: CGWindowListOption, scope: HotkeyManager.Mode, frontmostPID: pid_t?) -> [WindowInfo] {

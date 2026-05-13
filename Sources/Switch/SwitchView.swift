@@ -166,12 +166,12 @@ struct SwitchView: View {
                         .padding(7)
                 }
 
-                if window.isCrossSpace {
+                if window.isMinimized || window.isCrossSpace {
                     HStack(spacing: 0) {
                         Spacer()
                         VStack {
                             Spacer()
-                            Text("OTHER SPACE")
+                            Text(window.isMinimized ? "MINIMIZED" : "OTHER SPACE")
                                 .font(.system(size: 9, weight: .semibold))
                                 .tracking(0.5)
                                 .foregroundStyle(.white.opacity(0.85))
