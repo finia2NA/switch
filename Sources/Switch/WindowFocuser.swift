@@ -34,19 +34,7 @@ enum WindowFocuser {
             AXUIElementPerformAction(target, kAXRaiseAction as CFString)
         }
 
-        // Flip Switch from .accessory to .regular for the activation request,
-        // then flip back. Same trick that fixed SettingsWindow on macOS 26 —
-        // .accessory apps can't reliably activate other apps without it.
-        let originalPolicy = NSApp.activationPolicy()
-        if originalPolicy == .accessory {
-            NSApp.setActivationPolicy(.regular)
-        }
-        app?.activate(options: [.activateAllWindows])
-        if originalPolicy == .accessory {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                NSApp.setActivationPolicy(.accessory)
-            }
-        }
+        app?.activate(options: [])
 
         WindowMRU.touch(window.id)
     }
