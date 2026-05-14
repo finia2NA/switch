@@ -7,7 +7,7 @@ A keyboard-driven window switcher for macOS.
 ## Install
 
 ```
-brew install --cask switch-mac
+brew install --cask Sanyam-G/switch/switch
 ```
 
 Or [download the latest .dmg](https://switch-dev.sanyamgarg.com).
