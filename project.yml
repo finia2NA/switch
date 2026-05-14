@@ -24,6 +24,8 @@ targets:
       - path: Sources/Switch
     dependencies:
       - package: Sparkle
+      - framework: /System/Library/PrivateFrameworks/SkyLight.framework
+        embed: false
     settings:
       base:
         PRODUCT_NAME: Switch

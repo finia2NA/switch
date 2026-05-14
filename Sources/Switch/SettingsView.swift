@@ -8,6 +8,7 @@ final class SettingsModel: ObservableObject {
     @Published var launchAtLogin: Bool = false
     @Published var allWindows: HotkeyBinding = HotkeyConfig.shared.allWindows
     @Published var currentApp: HotkeyBinding = HotkeyConfig.shared.currentApp
+    @Published var stickyToggle: HotkeyBinding? = HotkeyConfig.shared.stickyToggle
 
     init() { refresh() }
 
@@ -17,6 +18,7 @@ final class SettingsModel: ObservableObject {
         }
         allWindows = HotkeyConfig.shared.allWindows
         currentApp = HotkeyConfig.shared.currentApp
+        stickyToggle = HotkeyConfig.shared.stickyToggle
     }
 
     func setLaunchAtLogin(_ enabled: Bool) {
@@ -43,6 +45,11 @@ final class SettingsModel: ObservableObject {
     func updateCurrentApp(_ b: HotkeyBinding) {
         HotkeyConfig.shared.currentApp = b
         currentApp = b
+    }
+
+    func updateStickyToggle(_ b: HotkeyBinding?) {
+        HotkeyConfig.shared.stickyToggle = b
+        stickyToggle = b
     }
 
     func resetHotkeys() {
@@ -137,9 +144,34 @@ struct SettingsView: View {
                                 .tint(prefs.accent.color)
                         }
                         Divider().opacity(0.4)
+                        row(title: "Vertical list",
+                            detail: "One window per row instead of a 4-column grid.") {
+                            Toggle("", isOn: $prefs.verticalList)
+                                .labelsHidden().toggleStyle(.switch)
+                                .tint(prefs.accent.color)
+                        }
+                        Divider().opacity(0.4)
                         row(title: "Keyboard only",
                             detail: "Ignore mouse hover and click while the picker is open.") {
                             Toggle("", isOn: $prefs.disableMouse)
+                                .labelsHidden().toggleStyle(.switch)
+                                .tint(prefs.accent.color)
+                        }
+                    }
+                }
+
+                section("Cross-Space") {
+                    VStack(spacing: 0) {
+                        row(title: "Show cross-Space windows",
+                            detail: "Include windows on other Spaces. Picking one moves it to your current Space.") {
+                            Toggle("", isOn: $prefs.showCrossSpace)
+                                .labelsHidden().toggleStyle(.switch)
+                                .tint(prefs.accent.color)
+                        }
+                        Divider().opacity(0.4)
+                        row(title: "Mix by recent use",
+                            detail: "Sort all windows together by recency instead of grouping by Space.") {
+                            Toggle("", isOn: $prefs.mruMixSpaces)
                                 .labelsHidden().toggleStyle(.switch)
                                 .tint(prefs.accent.color)
                         }
@@ -154,6 +186,7 @@ struct SettingsView: View {
                         hotkeyRow(label: "Current app", binding: model.currentApp) { b in
                             apply(b) { model.updateCurrentApp($0) }
                         }
+                        stickyToggleRow
                         if let msg = rejectMessage {
                             Text(msg)
                                 .font(.system(size: 11))
@@ -175,9 +208,123 @@ struct SettingsView: View {
                     .padding(14)
                     .background(rowBackground)
                 }
+
+                blacklistSection
             }
             .padding(24)
         }
+    }
+
+    private var stickyToggleRow: some View {
+        HStack(spacing: 12) {
+            Text("Sticky toggle")
+                .font(.system(size: 13, weight: .medium))
+                .frame(width: 100, alignment: .leading)
+            KeyRecorderField(
+                initialBinding: model.stickyToggle ?? HotkeyBinding(keyCode: 0, modifiersRaw: 0),
+                onCapture: { b in apply(b) { model.updateStickyToggle($0) } },
+                accent: prefs.accent.color,
+                placeholder: "Not set"
+            )
+            .frame(width: 180, height: 28)
+            if model.stickyToggle != nil {
+                Button("Clear") { model.updateStickyToggle(nil) }
+                    .controlSize(.small)
+            }
+            Spacer()
+        }
+    }
+
+    private var blacklistSection: some View {
+        section("Excluded apps") {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Windows from these apps won't appear in the picker.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                if prefs.blacklist.isEmpty {
+                    Text("Nothing excluded.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.tertiary)
+                        .padding(.vertical, 4)
+                } else {
+                    VStack(spacing: 4) {
+                        ForEach(Array(prefs.blacklist).sorted(by: { sortKey($0) < sortKey($1) }), id: \.self) { bid in
+                            blacklistRow(bundleID: bid)
+                        }
+                    }
+                }
+                Menu {
+                    ForEach(addableApps(), id: \.bundleIdentifier) { app in
+                        Button {
+                            if let bid = app.bundleIdentifier {
+                                prefs.blacklist.insert(bid)
+                            }
+                        } label: {
+                            if let icon = app.icon {
+                                Image(nsImage: icon)
+                            }
+                            Text(app.localizedName ?? app.bundleIdentifier ?? "—")
+                        }
+                    }
+                } label: {
+                    Text("+ Add app")
+                        .font(.system(size: 11, weight: .medium))
+                }
+                .menuStyle(.borderlessButton)
+                .fixedSize()
+            }
+            .padding(14)
+            .background(rowBackground)
+        }
+    }
+
+    private func blacklistRow(bundleID: String) -> some View {
+        let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID)
+        let icon = url.map { NSWorkspace.shared.icon(forFile: $0.path) }
+        let name = url.flatMap { Bundle(url: $0)?.infoDictionary?["CFBundleName"] as? String }
+            ?? url?.deletingPathExtension().lastPathComponent
+            ?? bundleID
+        return HStack(spacing: 8) {
+            if let icon {
+                Image(nsImage: icon)
+                    .resizable()
+                    .frame(width: 18, height: 18)
+            }
+            VStack(alignment: .leading, spacing: 1) {
+                Text(name).font(.system(size: 12))
+                Text(bundleID)
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundStyle(.tertiary)
+                    .lineLimit(1)
+            }
+            Spacer()
+            Button {
+                prefs.blacklist.remove(bundleID)
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.vertical, 4)
+        .padding(.horizontal, 6)
+    }
+
+    private func addableApps() -> [NSRunningApplication] {
+        let blocked = prefs.blacklist
+        let ownBundle = Bundle.main.bundleIdentifier
+        return NSWorkspace.shared.runningApplications
+            .filter { $0.activationPolicy == .regular }
+            .filter { $0.bundleIdentifier != ownBundle }
+            .filter { ($0.bundleIdentifier.map { !blocked.contains($0) } ?? false) }
+            .sorted { ($0.localizedName ?? "") < ($1.localizedName ?? "") }
+    }
+
+    private func sortKey(_ bid: String) -> String {
+        let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bid)
+        let name = url.flatMap { Bundle(url: $0)?.infoDictionary?["CFBundleName"] as? String }
+            ?? url?.deletingPathExtension().lastPathComponent
+        return (name ?? bid).lowercased()
     }
 
     private var appearanceTab: some View {
@@ -201,14 +348,6 @@ struct SettingsView: View {
                     .background(rowBackground)
                 }
 
-                section("Picker") {
-                    row(title: "Show windows from all Spaces",
-                        detail: "Off limits the picker to your current Space.") {
-                        Toggle("", isOn: $prefs.showCrossSpace)
-                            .labelsHidden().toggleStyle(.switch)
-                            .tint(prefs.accent.color)
-                    }
-                }
             }
             .padding(24)
         }
@@ -381,12 +520,14 @@ struct KeyRecorderField: NSViewRepresentable {
     let initialBinding: HotkeyBinding
     let onCapture: (HotkeyBinding) -> Void
     var accent: Color = .accentColor
+    var placeholder: String = "—"
 
     func makeNSView(context: Context) -> KeyRecorderNSView {
         let v = KeyRecorderNSView()
         v.binding = initialBinding
         v.onCapture = onCapture
         v.accentNSColor = NSColor(accent)
+        v.placeholder = placeholder
         return v
     }
 
@@ -396,12 +537,14 @@ struct KeyRecorderField: NSViewRepresentable {
         }
         view.onCapture = onCapture
         view.accentNSColor = NSColor(accent)
+        view.placeholder = placeholder
     }
 }
 
 final class KeyRecorderNSView: NSView {
     var onCapture: ((HotkeyBinding) -> Void)?
     var accentNSColor: NSColor = .controlAccentColor { didSet { redraw() } }
+    var placeholder: String = "—" { didSet { redraw() } }
     private let label = NSTextField(labelWithString: "")
     private var monitor: Any?
     private var recording = false { didSet { redraw() } }
@@ -480,8 +623,13 @@ final class KeyRecorderNSView: NSView {
             layer?.borderColor = accentNSColor.cgColor
             layer?.backgroundColor = accentNSColor.withAlphaComponent(0.10).cgColor
         } else {
-            label.stringValue = binding.displayString
-            label.textColor = .labelColor
+            if binding.keyCode == 0 && binding.modifiersRaw == 0 {
+                label.stringValue = placeholder
+                label.textColor = .tertiaryLabelColor
+            } else {
+                label.stringValue = binding.displayString
+                label.textColor = .labelColor
+            }
             layer?.borderColor = NSColor.separatorColor.cgColor
             layer?.backgroundColor = NSColor.controlBackgroundColor.withAlphaComponent(0.6).cgColor
         }

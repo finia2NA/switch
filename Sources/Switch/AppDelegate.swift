@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import SwiftUI
 #if canImport(Sparkle)
 import Sparkle
@@ -27,6 +28,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var focusTrackerStarted = false
     private var permsTimer: Timer?
     private var pendingPresent: DispatchWorkItem?
+    private var cancellables: Set<AnyCancellable> = []
     private static let quickFlipWindow: TimeInterval = 0.13
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -86,6 +88,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.presentNowIfPending(window: window)
             model.backspaceFilter()
         }
+        hotkey.onStickyToggle = {
+            SwitchPreferences.shared.stickyMode.toggle()
+        }
+
+        SwitchPreferences.shared.$verticalList
+            .dropFirst()
+            .sink { [weak window] _ in window?.applyContentSize() }
+            .store(in: &cancellables)
 
         self.model = model
         self.hotkey = hotkey
@@ -220,14 +230,21 @@ final class SwitcherWindow: NSPanel {
         host.layer?.cornerCurve = .continuous
         host.layer?.masksToBounds = true
         contentView = host
+        applyContentSize()
     }
 
     override var canBecomeKey: Bool { false }
     override var canBecomeMain: Bool { false }
 
+    func applyContentSize() {
+        let isList = UserDefaults.standard.bool(forKey: SwitchPreferences.verticalListKey)
+        setContentSize(NSSize(width: isList ? 520 : 880, height: 560))
+    }
+
     func present() {
         // Re-asserted every present so the panel migrates across Spaces.
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle]
+        applyContentSize()
 
         let cursor = NSEvent.mouseLocation
         let screen = NSScreen.screens.first(where: { NSMouseInRect(cursor, $0.frame, false) })

@@ -17,6 +17,7 @@ final class HotkeyManager {
     var onPickIndex: ((Int) -> Void)?
     var onFilterAppend: ((Character) -> Void)?
     var onFilterBackspace: (() -> Void)?
+    var onStickyToggle: (() -> Void)?
 
     private var tap: CFMachPort?
     private var source: CFRunLoopSource?
@@ -137,13 +138,20 @@ final class HotkeyManager {
 
         let flags = event.flags
         let cmd = flags.contains(.maskCommand)
-        let opt = flags.contains(.maskAlternate)
         let shift = flags.contains(.maskShift)
         let kc = CGKeyCode(event.getIntegerValueField(.keyboardEventKeycode))
 
         if type == .keyDown {
             let allBinding = HotkeyConfig.shared.allWindows
             let appBinding = HotkeyConfig.shared.currentApp
+
+            if let stickyBinding = HotkeyConfig.shared.stickyToggle,
+               stickyBinding.matchesTrigger(keyCode: kc, flags: flags) {
+                DispatchQueue.main.async { [weak self] in
+                    self?.onStickyToggle?()
+                }
+                return nil
+            }
 
             if allBinding.matchesTrigger(keyCode: kc, flags: flags) {
                 DispatchQueue.main.async { [weak self] in

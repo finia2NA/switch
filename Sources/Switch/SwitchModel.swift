@@ -38,9 +38,15 @@ final class SwitchModel: ObservableObject {
         // when any one is raised, which is the wrong signal for a window switcher.
         let enumeration = WindowEnumerator.enumerate(scope: mode, frontmostPID: frontmostPID)
         let activeFront = enumeration.activeSpace.first
-        let activeSorted = WindowMRU.sorted(enumeration.activeSpace, frontmost: activeFront)
-        let crossSorted = WindowMRU.sorted(enumeration.crossSpace, frontmost: nil)
-        let ws = activeSorted + crossSorted
+        let ws: [WindowInfo]
+        if SwitchPreferences.shared.mruMixSpaces {
+            let merged = enumeration.activeSpace + enumeration.crossSpace
+            ws = WindowMRU.sorted(merged, frontmost: activeFront)
+        } else {
+            let activeSorted = WindowMRU.sorted(enumeration.activeSpace, frontmost: activeFront)
+            let crossSorted = WindowMRU.sorted(enumeration.crossSpace, frontmost: nil)
+            ws = activeSorted + crossSorted
+        }
         WindowMRU.purge(keeping: Set(ws.map { $0.id }))
         windows = ws
         selected = ws.count > 1 ? 1 : 0
@@ -131,12 +137,11 @@ final class SwitchModel: ObservableObject {
         selected = reverse ? (selected - 1 + n) % n : (selected + 1) % n
     }
 
-    /// Cols hardcoded to match SwitchView's 4-col grid.
     func navigate(direction: HotkeyManager.Direction) {
         let list = filteredWindows
         guard !list.isEmpty else { return }
         let n = list.count
-        let cols = 4
+        let cols = SwitchPreferences.shared.verticalList ? 1 : 4
         let delta: Int
         switch direction {
         case .left:  delta = -1

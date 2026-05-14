@@ -57,6 +57,7 @@ final class HotkeyConfig {
     private let defaults = UserDefaults.standard
     private let allKey = "switch.hotkey.allWindows"
     private let appKey = "switch.hotkey.currentApp"
+    private let stickyKey = "switch.hotkey.stickyToggle"
 
     static let didChangeNotification = Notification.Name("com.sanyamgarg.switch.hotkeyConfigDidChange")
 
@@ -72,9 +73,22 @@ final class HotkeyConfig {
         set { save(newValue, key: appKey) }
     }
 
+    var stickyToggle: HotkeyBinding? {
+        get { load(stickyKey) }
+        set {
+            if let nv = newValue {
+                save(nv, key: stickyKey)
+            } else {
+                defaults.removeObject(forKey: stickyKey)
+                NotificationCenter.default.post(name: Self.didChangeNotification, object: nil)
+            }
+        }
+    }
+
     func resetToDefaults() {
         defaults.removeObject(forKey: allKey)
         defaults.removeObject(forKey: appKey)
+        defaults.removeObject(forKey: stickyKey)
         NotificationCenter.default.post(name: Self.didChangeNotification, object: nil)
     }
 

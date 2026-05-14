@@ -59,28 +59,20 @@ enum WindowEnumerator {
         let crossSpace = everything
             .filter { !activeIDs.contains($0.id) }
             .map { var w = $0; w.isCrossSpace = true; return w }
-        // .optionAll surfaces orderOut'd-but-undestroyed windows (SwiftUI Settings
-        // scenes are notorious). AX kAXWindowsAttribute doesn't list those, so
-        // intersecting with AX-visible IDs drops the ghosts.
-        let filteredCross = filterAXVisible(crossSpace)
-        return Enumeration(activeSpace: activeSpace, crossSpace: filteredCross)
+        let annotated = annotateAndPrune(crossSpace)
+        return Enumeration(activeSpace: activeSpace, crossSpace: annotated)
     }
 
-    private static func filterAXVisible(_ candidates: [WindowInfo]) -> [WindowInfo] {
-        var visibleIDs: Set<CGWindowID> = []
+    private static func annotateAndPrune(_ candidates: [WindowInfo]) -> [WindowInfo] {
         var minimizedIDs: Set<CGWindowID> = []
-        var pidsScanned: Set<pid_t> = []
-        for w in candidates {
-            if pidsScanned.contains(w.pid) { continue }
-            pidsScanned.insert(w.pid)
-            let appAX = AXUIElementCreateApplication(w.pid)
+        for pid in Set(candidates.map { $0.pid }) {
+            let appAX = AXUIElementCreateApplication(pid)
             var ref: CFTypeRef?
             guard AXUIElementCopyAttributeValue(appAX, kAXWindowsAttribute as CFString, &ref) == .success,
                   let axWindows = ref as? [AXUIElement] else { continue }
             for ax in axWindows {
                 var id: CGWindowID = 0
                 if _AXUIElementGetWindow(ax, &id) == .success, id != 0 {
-                    visibleIDs.insert(id)
                     var minRef: CFTypeRef?
                     if AXUIElementCopyAttributeValue(ax, kAXMinimizedAttribute as CFString, &minRef) == .success,
                        let isMin = minRef as? Bool, isMin {
@@ -89,18 +81,32 @@ enum WindowEnumerator {
                 }
             }
         }
-        return candidates.filter { visibleIDs.contains($0.id) }.map { w in
-            guard minimizedIDs.contains(w.id) else { return w }
-            var w = w
-            w.isMinimized = true
-            w.isCrossSpace = false
-            return w
+        let cid = CGSMainConnectionID()
+        return candidates.compactMap { w in
+            let arr = [NSNumber(value: w.id)] as CFArray
+            let spaces = CGSCopySpacesForWindows(cid, 7, arr)?.takeRetainedValue() as? [Int] ?? []
+            if spaces.isEmpty { return nil }
+            var out = w
+            if minimizedIDs.contains(w.id) {
+                out.isMinimized = true
+                out.isCrossSpace = false
+            }
+            return out
         }
     }
 
     private static func enumerate(option: CGWindowListOption, scope: HotkeyManager.Mode, frontmostPID: pid_t?) -> [WindowInfo] {
         guard let raw = CGWindowListCopyWindowInfo(option, kCGNullWindowID) as? [[String: Any]] else {
             return []
+        }
+        let blacklist = Set(UserDefaults.standard.stringArray(forKey: SwitchPreferences.blacklistKey) ?? [])
+        var blockedPIDs: Set<pid_t> = []
+        if !blacklist.isEmpty {
+            for app in NSWorkspace.shared.runningApplications {
+                if let bid = app.bundleIdentifier, blacklist.contains(bid) {
+                    blockedPIDs.insert(app.processIdentifier)
+                }
+            }
         }
         var out: [WindowInfo] = []
         var seenIDs: Set<CGWindowID> = []
@@ -112,6 +118,7 @@ enum WindowEnumerator {
             guard let pid = d[kCGWindowOwnerPID as String] as? pid_t else { continue }
             if skipApps.contains(appName) { continue }
             if isHelperProcess(appName) { continue }
+            if blockedPIDs.contains(pid) { continue }
             let title = d[kCGWindowName as String] as? String ?? ""
             let boundsDict = d[kCGWindowBounds as String] as? [String: CGFloat] ?? [:]
             let bounds = CGRect(

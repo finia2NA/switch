@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SwitchView: View {
     @EnvironmentObject var model: SwitchModel
+    @ObservedObject private var prefs = SwitchPreferences.shared
     @Namespace private var selectionNS
     @State private var hoveredID: CGWindowID?
     @State private var openMouseLocation: CGPoint = .zero
@@ -17,7 +18,7 @@ struct SwitchView: View {
         .background(
             VisualEffectBackdrop(material: .hudWindow, blendingMode: .behindWindow)
         )
-        .frame(width: 880, height: 560)
+        .frame(width: prefs.verticalList ? 520 : 880, height: 560)
         .scaleEffect(model.visible ? 1.0 : 0.97)
         .opacity(model.visible ? 1 : 0)
         .animation(.spring(response: 0.18, dampingFraction: 0.86), value: model.visible)
@@ -63,15 +64,26 @@ struct SwitchView: View {
             } else {
                 ScrollViewReader { proxy in
                     ScrollView(.vertical, showsIndicators: false) {
-                        LazyVGrid(columns: gridColumns, spacing: 14) {
-                            ForEach(Array(list.enumerated()), id: \.element.id) { idx, w in
-                                tile(window: w, index: idx, list: list)
-                                    .id(w.id)
+                        if prefs.verticalList {
+                            LazyVStack(spacing: 4) {
+                                ForEach(Array(list.enumerated()), id: \.element.id) { idx, w in
+                                    listRow(window: w, index: idx)
+                                        .id(w.id)
+                                }
                             }
+                            .padding(.horizontal, 14)
+                            .padding(.bottom, 10)
+                        } else {
+                            LazyVGrid(columns: gridColumns, spacing: 14) {
+                                ForEach(Array(list.enumerated()), id: \.element.id) { idx, w in
+                                    tile(window: w, index: idx, list: list)
+                                        .id(w.id)
+                                }
+                            }
+                            .padding(.horizontal, 22)
+                            .padding(.top, 0)
+                            .padding(.bottom, 12)
                         }
-                        .padding(.horizontal, 22)
-                        .padding(.top, 0)
-                        .padding(.bottom, 12)
                     }
                     .onChange(of: model.selected) { _, new in
                         // Skip auto-scroll when selection came from mouse hover —
@@ -95,8 +107,12 @@ struct SwitchView: View {
     private var hintStrip: some View {
         HStack(spacing: 14) {
             hint("↵", "switch")
-            hint("←↑↓→", "navigate")
-            hint("1-9", "pick")
+            if prefs.verticalList {
+                hint("↑↓", "navigate")
+            } else {
+                hint("←↑↓→", "navigate")
+                hint("1-9", "pick")
+            }
             hint("⌘W", "close")
             hint("⌘Q", "quit")
             hint("⌘H", "hide")
@@ -253,6 +269,113 @@ struct SwitchView: View {
         }
         .onTapGesture {
             guard !SwitchPreferences.shared.disableMouse else { return }
+            lastSelectionFromMouse = true
+            model.selected = index
+            model.commitAndDismiss?()
+        }
+    }
+
+    private func listRow(window: WindowInfo, index: Int) -> some View {
+        let selected = index == model.selected
+        let hovered = hoveredID == window.id
+        let icon = appIcon(for: window.pid)
+        let accent = prefs.accent.color
+
+        return HStack(spacing: 11) {
+            ZStack {
+                if let icon {
+                    Image(nsImage: icon)
+                        .resizable()
+                        .frame(width: 32, height: 32)
+                } else {
+                    Color.clear.frame(width: 32, height: 32)
+                }
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(window.appName)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                if !window.title.isEmpty {
+                    Text(window.title)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
+            Spacer(minLength: 6)
+            if window.isMinimized || window.isCrossSpace {
+                Text(window.isMinimized ? "MINIMIZED" : "OTHER SPACE")
+                    .font(.system(size: 9, weight: .semibold))
+                    .tracking(0.5)
+                    .foregroundStyle(.white.opacity(0.85))
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 3)
+                    .background(.ultraThinMaterial)
+                    .clipShape(Capsule())
+            }
+            Group {
+                if let img = model.thumbnails[window.id] {
+                    Image(nsImage: img)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 88, height: 50)
+                } else {
+                    Color.black.opacity(0.22)
+                        .frame(width: 88, height: 50)
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            ZStack {
+                if hovered && !selected {
+                    Color.white.opacity(0.06)
+                }
+                if selected {
+                    accent.opacity(0.22)
+                        .matchedGeometryEffect(id: "selectionBG", in: selectionNS)
+                }
+            }
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay(
+            ZStack {
+                if selected {
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .stroke(accent.opacity(0.7), lineWidth: 1)
+                        .matchedGeometryEffect(id: "selectionRing", in: selectionNS)
+                }
+            }
+        )
+        .shadow(color: .black.opacity(selected ? 0.18 : 0), radius: 8, x: 0, y: 3)
+        .animation(.spring(response: 0.22, dampingFraction: 0.85), value: model.selected)
+        .animation(.easeOut(duration: 0.10), value: hoveredID)
+        .contentShape(Rectangle())
+        .onHover { isHovering in
+            guard !prefs.disableMouse else { return }
+            if isHovering {
+                if !hasMouseMovedSinceOpen {
+                    let loc = NSEvent.mouseLocation
+                    let dx = loc.x - openMouseLocation.x
+                    let dy = loc.y - openMouseLocation.y
+                    if hypot(dx, dy) < 10 { return }
+                    hasMouseMovedSinceOpen = true
+                }
+                hoveredID = window.id
+                if model.selected != index {
+                    lastSelectionFromMouse = true
+                    model.selected = index
+                }
+            } else if hoveredID == window.id {
+                hoveredID = nil
+            }
+        }
+        .onTapGesture {
+            guard !prefs.disableMouse else { return }
             lastSelectionFromMouse = true
             model.selected = index
             model.commitAndDismiss?()

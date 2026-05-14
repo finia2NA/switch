@@ -49,15 +49,33 @@ final class SwitchPreferences: ObservableObject {
         didSet { UserDefaults.standard.set(disableMouse, forKey: disableMouseKey) }
     }
 
+    @Published var verticalList: Bool {
+        didSet { UserDefaults.standard.set(verticalList, forKey: SwitchPreferences.verticalListKey) }
+    }
+
+    @Published var blacklist: Set<String> {
+        didSet { UserDefaults.standard.set(Array(blacklist), forKey: SwitchPreferences.blacklistKey) }
+    }
+
+    @Published var mruMixSpaces: Bool {
+        didSet { UserDefaults.standard.set(mruMixSpaces, forKey: mruMixSpacesKey) }
+    }
+
     private let accentKey = "switch.accent"
     private let crossSpaceKey = "switch.showCrossSpace"
-    static let stickyModeKey = "switch.stickyMode"
+    nonisolated static let stickyModeKey = "switch.stickyMode"
     private let disableMouseKey = "switch.disableMouse"
+    nonisolated static let verticalListKey = "switch.verticalList"
+    nonisolated static let blacklistKey = "switch.blacklist"
+    private let mruMixSpacesKey = "switch.mruMixSpaces"
 
     private init() {
         accent = AccentChoice(rawValue: UserDefaults.standard.string(forKey: accentKey) ?? "") ?? .system
         showCrossSpace = (UserDefaults.standard.object(forKey: crossSpaceKey) as? Bool) ?? true
         stickyMode = UserDefaults.standard.bool(forKey: SwitchPreferences.stickyModeKey)
         disableMouse = UserDefaults.standard.bool(forKey: "switch.disableMouse")
+        verticalList = UserDefaults.standard.bool(forKey: SwitchPreferences.verticalListKey)
+        blacklist = Set(UserDefaults.standard.stringArray(forKey: SwitchPreferences.blacklistKey) ?? [])
+        mruMixSpaces = (UserDefaults.standard.object(forKey: "switch.mruMixSpaces") as? Bool) ?? true
     }
 }

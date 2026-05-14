@@ -1,14 +1,6 @@
 import AppKit
 import ApplicationServices
 
-// Private API used by AltTab and other window managers — gives a direct
-// mapping from AXUIElement to CGWindowID. Public AX API has no equivalent,
-// so without this we have to fuzzy-match by title or bounds, which fails
-// for apps like Chrome that have multiple windows with identical titles.
-// Distributed outside the App Store, so private SPI is fine.
-@_silgen_name("_AXUIElementGetWindow")
-func _AXUIElementGetWindow(_ element: AXUIElement, _ windowID: UnsafeMutablePointer<CGWindowID>) -> AXError
-
 private func axWindowID(_ element: AXUIElement) -> CGWindowID? {
     var id: CGWindowID = 0
     let err = _AXUIElementGetWindow(element, &id)
@@ -16,12 +8,14 @@ private func axWindowID(_ element: AXUIElement) -> CGWindowID? {
 }
 
 enum WindowFocuser {
-    /// AX-raise FIRST, then activate the app. Reverse order loses races on
-    /// macOS 14+/26 because `.accessory` apps requesting cross-app activation
-    /// gets denied intermittently — picker dismisses, no switch happens.
-    /// AX-raise works regardless of activation state, so by the time activate
-    /// runs, the right window is already main and the system honors it.
     static func focus(_ window: WindowInfo) {
+        if window.isCrossSpace {
+            let cid = CGSMainConnectionID()
+            let currentSpace = CGSGetActiveSpace(cid)
+            let ids = [NSNumber(value: window.id)] as CFArray
+            CGSMoveWindowsToManagedSpace(cid, ids, currentSpace)
+        }
+
         let app = NSRunningApplication(processIdentifier: window.pid)
         if app?.isHidden == true { app?.unhide() }
 
