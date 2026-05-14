@@ -9,9 +9,7 @@ final class SettingsModel: ObservableObject {
     @Published var allWindows: HotkeyBinding = HotkeyConfig.shared.allWindows
     @Published var currentApp: HotkeyBinding = HotkeyConfig.shared.currentApp
 
-    init() {
-        refresh()
-    }
+    init() { refresh() }
 
     func refresh() {
         if #available(macOS 13.0, *) {
@@ -53,190 +51,313 @@ final class SettingsModel: ObservableObject {
     }
 }
 
+private enum SettingsTab: String, CaseIterable, Identifiable {
+    case general, appearance, about
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .general: return "General"
+        case .appearance: return "Appearance"
+        case .about: return "About"
+        }
+    }
+}
+
 struct SettingsView: View {
     @StateObject private var model = SettingsModel()
     @ObservedObject private var prefs = SwitchPreferences.shared
     @State private var rejectMessage: String?
+    @State private var tab: SettingsTab = .general
 
     var body: some View {
-        TabView {
-            generalTab
-                .tabItem { Label("General", systemImage: "gear") }
-            appearanceTab
-                .tabItem { Label("Appearance", systemImage: "paintbrush") }
-            aboutTab
-                .tabItem { Label("About", systemImage: "info.circle") }
+        VStack(spacing: 0) {
+            tabBar
+            Divider().opacity(0.5)
+            Group {
+                switch tab {
+                case .general:    generalTab
+                case .appearance: appearanceTab
+                case .about:      aboutTab
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .frame(width: 480, height: 400)
-    }
-
-    private var appearanceTab: some View {
-        Form {
-            Section("Accent color") {
-                HStack(spacing: 12) {
-                    ForEach(SwitchPreferences.AccentChoice.allCases) { choice in
-                        Button {
-                            prefs.accent = choice
-                        } label: {
-                            Circle()
-                                .fill(choice.color)
-                                .frame(width: 26, height: 26)
-                                .overlay(
-                                    Circle().stroke(
-                                        prefs.accent == choice ? Color.primary : Color.secondary.opacity(0.3),
-                                        lineWidth: prefs.accent == choice ? 2 : 1
-                                    )
-                                )
-                        }
-                        .buttonStyle(.plain)
-                        .help(choice.label)
-                    }
-                }
-                .padding(.vertical, 4)
-                Text("Affects the selection highlight and accent details. System follows your macOS accent.")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
-            }
-
-            Section("Windows") {
-                Toggle(isOn: $prefs.showCrossSpace) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Show windows from all Spaces")
-                        Text("When off, only windows on your current Space appear. Cross-Space windows still get a badge when shown.")
-                            .font(.system(size: 11))
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
-        }
-        .formStyle(.grouped)
-    }
-
-    private var generalTab: some View {
-        Form {
-            Section {
-                Toggle(isOn: Binding(
-                    get: { model.launchAtLogin },
-                    set: { model.setLaunchAtLogin($0) }
-                )) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Launch Switch at login")
-                        Text("Run automatically when you sign in to your Mac.")
-                            .font(.system(size: 11))
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
-
-            Section("Behavior") {
-                Toggle(isOn: $prefs.stickyMode) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Sticky picker")
-                        Text("Release ⌘ to leave the picker open. Press Return to switch, Esc to cancel.")
-                            .font(.system(size: 11))
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                Toggle(isOn: $prefs.disableMouse) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Keyboard only")
-                        Text("Ignore mouse hover and click while the picker is open.")
-                            .font(.system(size: 11))
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
-
-            Section("Hotkeys") {
-                hotkeyEditor(label: "All windows", binding: model.allWindows) { b in
-                    if let msg = HotkeyValidator.reject(keyCode: b.keyCode, flags: b.cgFlags) {
-                        rejectMessage = msg
-                    } else {
-                        rejectMessage = nil
-                        model.updateAllWindows(b)
-                    }
-                }
-                hotkeyEditor(label: "Current app", binding: model.currentApp) { b in
-                    if let msg = HotkeyValidator.reject(keyCode: b.keyCode, flags: b.cgFlags) {
-                        rejectMessage = msg
-                    } else {
-                        rejectMessage = nil
-                        model.updateCurrentApp(b)
-                    }
-                }
-                if let msg = rejectMessage {
-                    Text(msg)
-                        .font(.system(size: 11))
-                        .foregroundStyle(.red)
-                }
-                HStack {
-                    Spacer()
-                    Button("Reset to defaults") {
-                        rejectMessage = nil
-                        model.resetHotkeys()
-                    }
-                    .controlSize(.small)
-                }
-
-                Text("Type filters · Esc cancels · → closes the selected window · ⇧ reverses.")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
-                    .padding(.top, 4)
-            }
-        }
-        .formStyle(.grouped)
+        .frame(width: 500, height: 460)
         .onAppear { model.refresh() }
     }
 
-    private func hotkeyEditor(label: String, binding: HotkeyBinding, onCapture: @escaping (HotkeyBinding) -> Void) -> some View {
-        HStack {
-            Text(label)
-                .frame(width: 110, alignment: .leading)
-            KeyRecorderField(initialBinding: binding, onCapture: onCapture)
-                .frame(width: 160, height: 24)
+    private var tabBar: some View {
+        HStack(spacing: 4) {
+            ForEach(SettingsTab.allCases) { t in
+                Button {
+                    tab = t
+                } label: {
+                    Text(t.label)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(tab == t ? prefs.accent.color : .secondary)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 7)
+                        .background(
+                            RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                .fill(tab == t ? prefs.accent.color.opacity(0.14) : Color.clear)
+                        )
+                }
+                .buttonStyle(.plain)
+            }
             Spacer()
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+    }
+
+    // MARK: - Tabs
+
+    private var generalTab: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 26) {
+                section("Startup") {
+                    row(title: "Launch Switch at login",
+                        detail: "Run automatically when you sign in to your Mac.") {
+                        Toggle("", isOn: Binding(
+                            get: { model.launchAtLogin },
+                            set: { model.setLaunchAtLogin($0) }
+                        ))
+                        .labelsHidden()
+                        .toggleStyle(.switch)
+                        .tint(prefs.accent.color)
+                    }
+                }
+
+                section("Behavior") {
+                    VStack(spacing: 0) {
+                        row(title: "Sticky picker",
+                            detail: "Release ⌘ to leave the picker open. Return to switch, Esc to cancel.") {
+                            Toggle("", isOn: $prefs.stickyMode)
+                                .labelsHidden().toggleStyle(.switch)
+                                .tint(prefs.accent.color)
+                        }
+                        Divider().opacity(0.4)
+                        row(title: "Keyboard only",
+                            detail: "Ignore mouse hover and click while the picker is open.") {
+                            Toggle("", isOn: $prefs.disableMouse)
+                                .labelsHidden().toggleStyle(.switch)
+                                .tint(prefs.accent.color)
+                        }
+                    }
+                }
+
+                section("Hotkeys") {
+                    VStack(alignment: .leading, spacing: 12) {
+                        hotkeyRow(label: "All windows", binding: model.allWindows) { b in
+                            apply(b) { model.updateAllWindows($0) }
+                        }
+                        hotkeyRow(label: "Current app", binding: model.currentApp) { b in
+                            apply(b) { model.updateCurrentApp($0) }
+                        }
+                        if let msg = rejectMessage {
+                            Text(msg)
+                                .font(.system(size: 11))
+                                .foregroundStyle(.red)
+                        }
+                        HStack {
+                            Text("Type to filter · ⌘W close · ⌘Q quit · ⌘H hide · ⇧ reverse")
+                                .font(.system(size: 11))
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                            Button("Reset") {
+                                rejectMessage = nil
+                                model.resetHotkeys()
+                            }
+                            .controlSize(.small)
+                        }
+                        .padding(.top, 4)
+                    }
+                    .padding(14)
+                    .background(rowBackground)
+                }
+            }
+            .padding(24)
+        }
+    }
+
+    private var appearanceTab: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 26) {
+                section("Accent") {
+                    VStack(alignment: .leading, spacing: 14) {
+                        HStack(spacing: 14) {
+                            ForEach(SwitchPreferences.AccentChoice.allCases) { choice in
+                                accentSwatch(choice)
+                            }
+                        }
+                        Text(prefs.accent.label)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(.secondary)
+                        Text("Accent shows up in the selection highlight and across this Settings window.")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(14)
+                    .background(rowBackground)
+                }
+
+                section("Picker") {
+                    row(title: "Show windows from all Spaces",
+                        detail: "Off limits the picker to your current Space.") {
+                        Toggle("", isOn: $prefs.showCrossSpace)
+                            .labelsHidden().toggleStyle(.switch)
+                            .tint(prefs.accent.color)
+                    }
+                }
+            }
+            .padding(24)
         }
     }
 
     private var aboutTab: some View {
-        VStack(spacing: 14) {
+        VStack(spacing: 16) {
             Spacer(minLength: 0)
             if let icon = NSImage(named: "AppIcon") {
                 Image(nsImage: icon)
                     .resizable()
-                    .frame(width: 96, height: 96)
+                    .frame(width: 92, height: 92)
+                    .shadow(color: .black.opacity(0.35), radius: 8, y: 4)
             }
-            Text("Switch")
-                .font(.system(size: 22, weight: .semibold))
-            Text("Version \(appVersion)")
-                .font(.system(size: 11))
-                .foregroundStyle(.secondary)
-            if let stamp = buildStamp {
-                Text(stamp)
-                    .font(.system(size: 10, design: .monospaced))
-                    .foregroundStyle(.tertiary)
-                    .textSelection(.enabled)
+            VStack(spacing: 4) {
+                Text("Switch")
+                    .font(.system(size: 22, weight: .semibold))
+                Text("Version \(appVersion)")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                if let stamp = buildStamp {
+                    Text(stamp)
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundStyle(.tertiary)
+                        .textSelection(.enabled)
+                }
             }
-            Text("A keyboard-driven window switcher for macOS.")
+            Text("Keyboard-driven window switcher for macOS.")
                 .font(.system(size: 12))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 24)
-            HStack(spacing: 18) {
-                Link("Website", destination: URL(string: "https://switch-dev.sanyamgarg.com")!)
-                Link("Source", destination: URL(string: "https://github.com/Sanyam-G/switch")!)
+
+            HStack(spacing: 8) {
+                pillLink("Website", url: "https://switch-dev.sanyamgarg.com")
+                pillLink("Source", url: "https://github.com/Sanyam-G/switch")
+                Button {
+                    NotificationCenter.default.post(name: .switchCheckForUpdates, object: nil)
+                } label: {
+                    Text("Check for Updates")
+                        .font(.system(size: 11, weight: .medium))
+                        .padding(.horizontal, 11)
+                        .padding(.vertical, 5)
+                        .background(prefs.accent.color.opacity(0.14))
+                        .foregroundStyle(prefs.accent.color)
+                        .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
             }
-            .font(.system(size: 12))
-            Button("Check for Updates…") {
-                NotificationCenter.default.post(name: .switchCheckForUpdates, object: nil)
-            }
-            .controlSize(.small)
-            Text("© 2026 Sanyam Garg. All rights reserved.")
+            Spacer(minLength: 0)
+            Text("© 2026 Sanyam Garg")
                 .font(.system(size: 10))
                 .foregroundStyle(.tertiary)
-            Spacer(minLength: 0)
+                .padding(.bottom, 12)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    // MARK: - Building blocks
+
+    private var rowBackground: some View {
+        RoundedRectangle(cornerRadius: 10, style: .continuous)
+            .fill(Color(nsColor: .controlBackgroundColor).opacity(0.5))
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(Color.primary.opacity(0.06), lineWidth: 1)
+            )
+    }
+
+    private func section<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Circle()
+                    .fill(prefs.accent.color)
+                    .frame(width: 5, height: 5)
+                Text(title.uppercased())
+                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                    .tracking(1.4)
+                    .foregroundStyle(.secondary)
+            }
+            content()
+        }
+    }
+
+    private func row<Trailing: View>(title: String, detail: String, @ViewBuilder trailing: () -> Trailing) -> some View {
+        HStack(alignment: .center, spacing: 14) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title).font(.system(size: 13, weight: .medium))
+                Text(detail)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 8)
+            trailing()
+        }
+        .padding(14)
+        .background(rowBackground)
+    }
+
+    private func hotkeyRow(label: String, binding: HotkeyBinding, onCapture: @escaping (HotkeyBinding) -> Void) -> some View {
+        HStack(spacing: 12) {
+            Text(label)
+                .font(.system(size: 13, weight: .medium))
+                .frame(width: 100, alignment: .leading)
+            KeyRecorderField(initialBinding: binding, onCapture: onCapture, accent: prefs.accent.color)
+                .frame(width: 180, height: 28)
+            Spacer()
+        }
+    }
+
+    private func accentSwatch(_ choice: SwitchPreferences.AccentChoice) -> some View {
+        let active = prefs.accent == choice
+        return Button {
+            prefs.accent = choice
+        } label: {
+            ZStack {
+                Circle().fill(choice.color)
+                if active {
+                    Circle()
+                        .stroke(Color.primary.opacity(0.9), lineWidth: 2)
+                        .padding(-3)
+                }
+            }
+            .frame(width: 26, height: 26)
+        }
+        .buttonStyle(.plain)
+        .help(choice.label)
+    }
+
+    private func pillLink(_ title: String, url: String) -> some View {
+        Link(destination: URL(string: url)!) {
+            Text(title)
+                .font(.system(size: 11, weight: .medium))
+                .padding(.horizontal, 11)
+                .padding(.vertical, 5)
+                .background(Color.primary.opacity(0.07))
+                .foregroundStyle(.primary)
+                .clipShape(Capsule())
+        }
+    }
+
+    private func apply(_ b: HotkeyBinding, save: (HotkeyBinding) -> Void) {
+        if let msg = HotkeyValidator.reject(keyCode: b.keyCode, flags: b.cgFlags) {
+            rejectMessage = msg
+        } else {
+            rejectMessage = nil
+            save(b)
+        }
     }
 
     private var appVersion: String {
@@ -245,7 +366,6 @@ struct SettingsView: View {
         return "\(v) (\(b))"
     }
 
-    /// nil in debug builds; release.sh stamps the plist.
     private var buildStamp: String? {
         let info = Bundle.main.infoDictionary
         guard let commit = info?["BuildCommit"] as? String,
@@ -260,11 +380,13 @@ struct SettingsView: View {
 struct KeyRecorderField: NSViewRepresentable {
     let initialBinding: HotkeyBinding
     let onCapture: (HotkeyBinding) -> Void
+    var accent: Color = .accentColor
 
     func makeNSView(context: Context) -> KeyRecorderNSView {
         let v = KeyRecorderNSView()
         v.binding = initialBinding
         v.onCapture = onCapture
+        v.accentNSColor = NSColor(accent)
         return v
     }
 
@@ -273,11 +395,13 @@ struct KeyRecorderField: NSViewRepresentable {
             view.binding = initialBinding
         }
         view.onCapture = onCapture
+        view.accentNSColor = NSColor(accent)
     }
 }
 
 final class KeyRecorderNSView: NSView {
     var onCapture: ((HotkeyBinding) -> Void)?
+    var accentNSColor: NSColor = .controlAccentColor { didSet { redraw() } }
     private let label = NSTextField(labelWithString: "")
     private var monitor: Any?
     private var recording = false { didSet { redraw() } }
@@ -289,7 +413,7 @@ final class KeyRecorderNSView: NSView {
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         wantsLayer = true
-        layer?.cornerRadius = 5
+        layer?.cornerRadius = 6
         layer?.cornerCurve = .continuous
         layer?.borderWidth = 1
         layer?.borderColor = NSColor.separatorColor.cgColor
@@ -353,13 +477,13 @@ final class KeyRecorderNSView: NSView {
         if recording {
             label.stringValue = "Press a key…"
             label.textColor = .secondaryLabelColor
-            layer?.borderColor = NSColor.controlAccentColor.cgColor
-            layer?.backgroundColor = NSColor.controlAccentColor.withAlphaComponent(0.10).cgColor
+            layer?.borderColor = accentNSColor.cgColor
+            layer?.backgroundColor = accentNSColor.withAlphaComponent(0.10).cgColor
         } else {
             label.stringValue = binding.displayString
             label.textColor = .labelColor
             layer?.borderColor = NSColor.separatorColor.cgColor
-            layer?.backgroundColor = NSColor.controlBackgroundColor.cgColor
+            layer?.backgroundColor = NSColor.controlBackgroundColor.withAlphaComponent(0.6).cgColor
         }
     }
 }
