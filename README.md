@@ -16,21 +16,33 @@ Notarized by Apple. macOS 14+. Free.
 
 ## Shortcuts
 
-- ⌘-Tab cycles all windows on the current Space
+- ⌘-Tab cycles all windows
 - ⌥-` cycles within the current app
 - type to filter inline
-- 1–9 (or numpad) picks a tile
-- ⌘W close window · ⌘Q quit app · ⌘H hide app
+- 1-9 (or numpad) picks a tile
+- ⌘W close window, ⌘Q quit app, ⌘H hide app
 - ↵ commits, Esc cancels
 - MRU ordering, picker pre-warms in the background
 
+## Cross-Space
+
+Windows on other Spaces show up in the picker, badged OTHER SPACE. Pick one and it moves to your current Space, no Mission Control animation. Toggle off, and choose whether to mix Spaces by recency, in Settings → Cross-Space.
+
+## Vertical list
+
+Settings → Behavior → Vertical list. Single-column layout with app icon, name, window title, and thumbnail.
+
+## Excluded apps
+
+Settings → General → Excluded apps. Hide windows from specific apps.
+
 ## Sticky mode
 
-Settings → General → Behavior → Sticky picker. Release ⌘ to keep the picker open. ↵ to switch, Esc to cancel.
+Settings → Behavior → Sticky picker. Release ⌘ to keep the picker open. ↵ to switch, Esc to cancel. Settings → Hotkeys → Sticky toggle binds a separate hotkey that flips sticky on or off at runtime.
 
 ## Updates
 
-Built-in. Settings → About → Check for Updates. EdDSA-signed appcast via Sparkle.
+Built-in. Daily background check. Settings → About → Check for Updates for manual. EdDSA-signed appcast via Sparkle.
 
 ## Roadmap
 
