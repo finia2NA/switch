@@ -219,6 +219,13 @@ struct SettingsView: View {
                                 .labelsHidden().toggleStyle(.switch)
                                 .tint(prefs.accent.color)
                         }
+                        Divider().opacity(0.4)
+                        row(title: "Show stoplights on thumbnails",
+                            detail: "Red/yellow/green buttons to close, minimize, or zoom each window. ⌘W closes the selected window either way.") {
+                            Toggle("", isOn: $prefs.showStoplights)
+                                .labelsHidden().toggleStyle(.switch)
+                                .tint(prefs.accent.color)
+                        }
                     }
                 }
 

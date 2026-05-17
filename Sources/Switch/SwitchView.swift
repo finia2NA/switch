@@ -113,6 +113,7 @@ struct SwitchView: View {
                 hint("←↑↓→", "navigate")
                 hint("1-9", "pick")
             }
+            hint("⌘W", "close")
             hint("⌘Q", "quit")
             hint("⌘H", "hide")
             hint("type", "filter")
@@ -204,7 +205,9 @@ struct SwitchView: View {
                 .frame(height: 130)
                 .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
                 .overlay(alignment: .topLeading) {
-                    if !window.isWindowless { stoplights(for: window).padding(7) }
+                    if prefs.showStoplights && !window.isWindowless {
+                        stoplights(for: window).padding(7)
+                    }
                 }
                 .animation(.easeOut(duration: 0.18), value: model.thumbnails[window.id] != nil)
 
@@ -337,7 +340,7 @@ struct SwitchView: View {
                 }
             }
             Spacer(minLength: 6)
-            if !window.isWindowless {
+            if prefs.showStoplights && !window.isWindowless {
                 stoplights(for: window)
                     .opacity(hovered ? 1 : 0.45)
             }

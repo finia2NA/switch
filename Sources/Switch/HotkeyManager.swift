@@ -202,6 +202,12 @@ final class HotkeyManager {
                     }
                     return nil
                 }
+                if cmd && kc == Self.kcW {
+                    DispatchQueue.main.async { [weak self] in
+                        self?.onCloseSelected?()
+                    }
+                    return nil
+                }
                 if cmd && kc == Self.kcH {
                     DispatchQueue.main.async { [weak self] in
                         self?.onHideSelected?()
