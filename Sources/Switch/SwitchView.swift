@@ -11,9 +11,9 @@ struct SwitchView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            header
+            if !prefs.verticalList || prefs.verticalShowHeader { header }
             grid
-            hintStrip
+            if prefs.showHintStrip { hintStrip }
         }
         .background(
             VisualEffectBackdrop(material: .hudWindow, blendingMode: .behindWindow)
@@ -94,7 +94,7 @@ struct SwitchView: View {
                         }
                         let cur = model.filteredWindows
                         guard cur.indices.contains(new) else { return }
-                        withAnimation(.easeOut(duration: 0.12)) {
+                        withAnimation(.easeInOut(duration: 0.22)) {
                             proxy.scrollTo(cur[new].id, anchor: .center)
                         }
                     }
@@ -181,7 +181,7 @@ struct SwitchView: View {
     }
 
     private var gridColumns: [GridItem] {
-        Array(repeating: GridItem(.flexible(), spacing: 14), count: 4)
+        Array(repeating: GridItem(.flexible(), spacing: 14), count: prefs.gridColumns)
     }
 
     private func tile(window: WindowInfo, index: Int, list: [WindowInfo]) -> some View {
@@ -209,7 +209,7 @@ struct SwitchView: View {
                     }
                 }
                 .frame(maxWidth: .infinity)
-                .frame(height: 130)
+                .frame(height: prefs.thumbnailHeight)
                 .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
                 .overlay(alignment: .topLeading) {
                     if prefs.showStoplights && !window.isWindowless {
@@ -221,7 +221,7 @@ struct SwitchView: View {
                 if let icon {
                     Image(nsImage: icon)
                         .resizable()
-                        .frame(width: 32, height: 32)
+                        .frame(width: prefs.appIconSize, height: prefs.appIconSize)
                         .shadow(color: .black.opacity(0.35), radius: 4, x: 0, y: 1)
                         .padding(7)
                 }
@@ -347,7 +347,7 @@ struct SwitchView: View {
                 }
             }
             Spacer(minLength: 6)
-            if prefs.showStoplights && !window.isWindowless {
+            if prefs.showStoplights && prefs.verticalShowStoplights && !window.isWindowless {
                 stoplights(for: window)
                     .opacity(hovered ? 1 : 0.45)
             }
@@ -361,18 +361,20 @@ struct SwitchView: View {
                     .background(.ultraThinMaterial)
                     .clipShape(Capsule())
             }
-            Group {
-                if let img = model.thumbnails[window.id] {
-                    Image(nsImage: img)
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(width: 88, height: 50)
-                } else {
-                    Color.black.opacity(0.22)
-                        .frame(width: 88, height: 50)
+            if prefs.verticalShowPreview {
+                Group {
+                    if let img = model.thumbnails[window.id] {
+                        Image(nsImage: img)
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: 88, height: 50)
+                    } else {
+                        Color.black.opacity(0.22)
+                            .frame(width: 88, height: 50)
+                    }
                 }
+                .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
             }
-            .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)

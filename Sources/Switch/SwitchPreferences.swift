@@ -77,6 +77,34 @@ final class SwitchPreferences: ObservableObject {
         didSet { UserDefaults.standard.set(showStoplights, forKey: SwitchPreferences.showStoplightsKey) }
     }
 
+    @Published var verticalShowStoplights: Bool {
+        didSet { UserDefaults.standard.set(verticalShowStoplights, forKey: SwitchPreferences.verticalShowStoplightsKey) }
+    }
+
+    @Published var verticalShowPreview: Bool {
+        didSet { UserDefaults.standard.set(verticalShowPreview, forKey: SwitchPreferences.verticalShowPreviewKey) }
+    }
+
+    @Published var verticalShowHeader: Bool {
+        didSet { UserDefaults.standard.set(verticalShowHeader, forKey: SwitchPreferences.verticalShowHeaderKey) }
+    }
+
+    @Published var showHintStrip: Bool {
+        didSet { UserDefaults.standard.set(showHintStrip, forKey: SwitchPreferences.showHintStripKey) }
+    }
+
+    @Published var thumbnailHeight: Double {
+        didSet { UserDefaults.standard.set(thumbnailHeight, forKey: SwitchPreferences.thumbnailHeightKey) }
+    }
+
+    @Published var appIconSize: Double {
+        didSet { UserDefaults.standard.set(appIconSize, forKey: SwitchPreferences.appIconSizeKey) }
+    }
+
+    @Published var gridColumns: Int {
+        didSet { UserDefaults.standard.set(gridColumns, forKey: SwitchPreferences.gridColumnsKey) }
+    }
+
     private let accentKey = "switch.accent"
     private let crossSpaceKey = "switch.showCrossSpace"
     nonisolated static let stickyModeKey = "switch.stickyMode"
@@ -88,6 +116,13 @@ final class SwitchPreferences: ObservableObject {
     nonisolated static let appOrderKey = "switch.appOrder"
     nonisolated static let includeWindowlessKey = "switch.includeWindowlessApps"
     nonisolated static let showStoplightsKey = "switch.showStoplights"
+    nonisolated static let verticalShowStoplightsKey = "switch.verticalShowStoplights"
+    nonisolated static let verticalShowPreviewKey = "switch.verticalShowPreview"
+    nonisolated static let verticalShowHeaderKey = "switch.verticalShowHeader"
+    nonisolated static let showHintStripKey = "switch.showHintStrip"
+    nonisolated static let thumbnailHeightKey = "switch.thumbnailHeight"
+    nonisolated static let appIconSizeKey = "switch.appIconSize"
+    nonisolated static let gridColumnsKey = "switch.gridColumns"
 
     private init() {
         accent = AccentChoice(rawValue: UserDefaults.standard.string(forKey: accentKey) ?? "") ?? .system
@@ -101,5 +136,12 @@ final class SwitchPreferences: ObservableObject {
         appOrder = UserDefaults.standard.stringArray(forKey: SwitchPreferences.appOrderKey) ?? []
         includeWindowlessApps = UserDefaults.standard.bool(forKey: SwitchPreferences.includeWindowlessKey)
         showStoplights = (UserDefaults.standard.object(forKey: SwitchPreferences.showStoplightsKey) as? Bool) ?? true
+        verticalShowStoplights = (UserDefaults.standard.object(forKey: SwitchPreferences.verticalShowStoplightsKey) as? Bool) ?? true
+        verticalShowPreview = (UserDefaults.standard.object(forKey: SwitchPreferences.verticalShowPreviewKey) as? Bool) ?? true
+        verticalShowHeader = (UserDefaults.standard.object(forKey: SwitchPreferences.verticalShowHeaderKey) as? Bool) ?? true
+        showHintStrip = (UserDefaults.standard.object(forKey: SwitchPreferences.showHintStripKey) as? Bool) ?? true
+        thumbnailHeight = (UserDefaults.standard.object(forKey: SwitchPreferences.thumbnailHeightKey) as? Double) ?? 130
+        appIconSize = (UserDefaults.standard.object(forKey: SwitchPreferences.appIconSizeKey) as? Double) ?? 32
+        gridColumns = (UserDefaults.standard.object(forKey: SwitchPreferences.gridColumnsKey) as? Int) ?? 4
     }
 }

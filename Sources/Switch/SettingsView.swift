@@ -188,13 +188,6 @@ struct SettingsView: View {
                                 .tint(prefs.accent.color)
                         }
                         Divider().opacity(0.4)
-                        row(title: "Vertical list",
-                            detail: "One window per row instead of a 4-column grid.") {
-                            Toggle("", isOn: $prefs.verticalList)
-                                .labelsHidden().toggleStyle(.switch)
-                                .tint(prefs.accent.color)
-                        }
-                        Divider().opacity(0.4)
                         row(title: "Keyboard only",
                             detail: "Ignore mouse hover and click while the picker is open.") {
                             Toggle("", isOn: $prefs.disableMouse)
@@ -224,6 +217,73 @@ struct SettingsView: View {
                             detail: "Red/yellow/green buttons to close, minimize, or zoom each window. ⌘W closes the selected window either way.") {
                             Toggle("", isOn: $prefs.showStoplights)
                                 .labelsHidden().toggleStyle(.switch)
+                                .tint(prefs.accent.color)
+                        }
+                        Divider().opacity(0.4)
+                        row(title: "Show hint strip",
+                            detail: "Keyboard shortcut hints at the bottom of the picker.") {
+                            Toggle("", isOn: $prefs.showHintStrip)
+                                .labelsHidden().toggleStyle(.switch)
+                                .tint(prefs.accent.color)
+                        }
+                    }
+                }
+
+                section("Vertical mode") {
+                    VStack(spacing: 0) {
+                        row(title: "Vertical list",
+                            detail: "One window per row instead of a grid.") {
+                            Toggle("", isOn: $prefs.verticalList)
+                                .labelsHidden().toggleStyle(.switch)
+                                .tint(prefs.accent.color)
+                        }
+                        Divider().opacity(0.4)
+                        row(title: "Show top header",
+                            detail: "Filter text and window count at the top of the picker.") {
+                            Toggle("", isOn: $prefs.verticalShowHeader)
+                                .labelsHidden().toggleStyle(.switch)
+                                .tint(prefs.accent.color)
+                        }
+                        Divider().opacity(0.4)
+                        row(title: "Show preview",
+                            detail: "Window thumbnail at the trailing edge of each row.") {
+                            Toggle("", isOn: $prefs.verticalShowPreview)
+                                .labelsHidden().toggleStyle(.switch)
+                                .tint(prefs.accent.color)
+                        }
+                        Divider().opacity(0.4)
+                        row(title: "Show stoplights",
+                            detail: "Close/minimize/zoom buttons inside each row.") {
+                            Toggle("", isOn: $prefs.verticalShowStoplights)
+                                .labelsHidden().toggleStyle(.switch)
+                                .tint(prefs.accent.color)
+                        }
+                    }
+                }
+
+                section("Sizing") {
+                    VStack(spacing: 0) {
+                        row(title: "Columns",
+                            detail: "Number of columns in the grid view. \(prefs.gridColumns)") {
+                            Slider(value: Binding(
+                                get: { Double(prefs.gridColumns) },
+                                set: { prefs.gridColumns = Int($0.rounded()) }
+                            ), in: 3...6, step: 1)
+                                .frame(width: 140)
+                                .tint(prefs.accent.color)
+                        }
+                        Divider().opacity(0.4)
+                        row(title: "Thumbnail size",
+                            detail: "Height of each grid tile's thumbnail. \(Int(prefs.thumbnailHeight))pt") {
+                            Slider(value: $prefs.thumbnailHeight, in: 80...200, step: 5)
+                                .frame(width: 140)
+                                .tint(prefs.accent.color)
+                        }
+                        Divider().opacity(0.4)
+                        row(title: "App icon size",
+                            detail: "Size of the app icon badge on each tile. \(Int(prefs.appIconSize))pt") {
+                            Slider(value: $prefs.appIconSize, in: 20...48, step: 2)
+                                .frame(width: 140)
                                 .tint(prefs.accent.color)
                         }
                     }

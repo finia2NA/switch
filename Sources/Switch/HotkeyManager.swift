@@ -32,6 +32,7 @@ final class HotkeyManager {
 
     private static let kcEscape: CGKeyCode = 53
     private static let kcReturn: CGKeyCode = 36
+    private static let kcKeypadEnter: CGKeyCode = 76
     private static let kcDelete: CGKeyCode = 51
     private static let kcLeftArrow: CGKeyCode = 123
     private static let kcRightArrow: CGKeyCode = 124
@@ -184,7 +185,7 @@ final class HotkeyManager {
                     }
                     return nil
                 }
-                if kc == Self.kcReturn {
+                if kc == Self.kcReturn || kc == Self.kcKeypadEnter {
                     DispatchQueue.main.async { [weak self] in
                         self?.armed = nil
                         self?.onCommit?()
