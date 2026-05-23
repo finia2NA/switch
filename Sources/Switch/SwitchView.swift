@@ -65,10 +65,8 @@ struct SwitchView: View {
             if prefs.showHintStrip { hintStrip }
         }
         .frame(width: (prefs.verticalList ? 520 : 880) * scale, height: 560 * scale)
-        .background(
-            .ultraThinMaterial,
-            in: RoundedRectangle(cornerRadius: 12, style: .continuous)
-        )
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .scaleEffect(model.visible ? 1.0 : 0.97)
         .opacity(model.visible ? 1 : 0)
         .animation(.spring(response: 0.18, dampingFraction: 0.86), value: model.visible)

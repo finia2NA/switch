@@ -179,8 +179,8 @@ struct SettingsView: View {
     private func optimizeForScreen() {
         guard let screen = NSScreen.main else { return }
         let visible = screen.visibleFrame
-        let targetWidth = visible.width * 0.75
-        let targetHeight = visible.height * 0.75
+        let targetWidth = visible.width * 0.5
+        let targetHeight = visible.height * 0.5
         let scaleByW = targetWidth / 880
         let scaleByH = targetHeight / 560
         let s = min(scaleByW, scaleByH)
@@ -300,7 +300,7 @@ struct SettingsView: View {
                         }
                         Divider().opacity(0.4)
                         row(title: "Optimize for my screen",
-                            detail: "Set columns and thumbnail size to fill about three quarters of your display.") {
+                            detail: "Set columns and thumbnail size to fill about half of your display.") {
                             Button("Apply") {
                                 optimizeForScreen()
                             }
