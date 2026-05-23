@@ -105,6 +105,10 @@ final class SwitchPreferences: ObservableObject {
         didSet { UserDefaults.standard.set(gridColumns, forKey: SwitchPreferences.gridColumnsKey) }
     }
 
+    @Published var pinnedBundleIDs: Set<String> {
+        didSet { UserDefaults.standard.set(Array(pinnedBundleIDs), forKey: SwitchPreferences.pinnedBundleIDsKey) }
+    }
+
     private let accentKey = "switch.accent"
     private let crossSpaceKey = "switch.showCrossSpace"
     nonisolated static let stickyModeKey = "switch.stickyMode"
@@ -123,6 +127,7 @@ final class SwitchPreferences: ObservableObject {
     nonisolated static let thumbnailHeightKey = "switch.thumbnailHeight"
     nonisolated static let appIconSizeKey = "switch.appIconSize"
     nonisolated static let gridColumnsKey = "switch.gridColumns"
+    nonisolated static let pinnedBundleIDsKey = "switch.pinnedBundleIDs"
 
     private init() {
         accent = AccentChoice(rawValue: UserDefaults.standard.string(forKey: accentKey) ?? "") ?? .system
@@ -143,5 +148,6 @@ final class SwitchPreferences: ObservableObject {
         thumbnailHeight = (UserDefaults.standard.object(forKey: SwitchPreferences.thumbnailHeightKey) as? Double) ?? 130
         appIconSize = (UserDefaults.standard.object(forKey: SwitchPreferences.appIconSizeKey) as? Double) ?? 32
         gridColumns = (UserDefaults.standard.object(forKey: SwitchPreferences.gridColumnsKey) as? Int) ?? 4
+        pinnedBundleIDs = Set(UserDefaults.standard.stringArray(forKey: SwitchPreferences.pinnedBundleIDsKey) ?? [])
     }
 }

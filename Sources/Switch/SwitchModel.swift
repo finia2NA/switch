@@ -22,9 +22,32 @@ final class SwitchModel: ObservableObject {
     var filteredWindows: [WindowInfo] {
         let q = filterText.lowercased()
         if q.isEmpty { return windows }
-        return windows.filter {
-            $0.appName.lowercased().contains(q) || $0.title.lowercased().contains(q)
+        let scored: [(WindowInfo, Int)] = windows.compactMap { w in
+            let a = Self.fuzzyScore(pattern: q, target: w.appName.lowercased())
+            let t = Self.fuzzyScore(pattern: q, target: w.title.lowercased())
+            guard let s = [a, t].compactMap({ $0 }).max() else { return nil }
+            return (w, s)
         }
+        return scored.sorted { $0.1 > $1.1 }.map { $0.0 }
+    }
+
+    private static func fuzzyScore(pattern: String, target: String) -> Int? {
+        let pat = Array(pattern)
+        let tgt = Array(target)
+        var score = 0
+        var patIdx = 0
+        var lastMatch = -1
+        for (i, c) in tgt.enumerated() {
+            guard patIdx < pat.count else { break }
+            if c == pat[patIdx] {
+                score += 1
+                if lastMatch == i - 1 { score += 5 }
+                if i == 0 || !tgt[i - 1].isLetter { score += 3 }
+                lastMatch = i
+                patIdx += 1
+            }
+        }
+        return patIdx == pat.count ? score : nil
     }
 
     func arm(_ mode: HotkeyManager.Mode) {
@@ -76,10 +99,19 @@ final class SwitchModel: ObservableObject {
                         appName: app.localizedName ?? "",
                         title: "",
                         bounds: .zero,
-                        isWindowless: true
+                        isWindowless: true,
+                        bundleID: app.bundleIdentifier
                     )
                 }
             final += extras
+        }
+        let pinned = SwitchPreferences.shared.pinnedBundleIDs
+        if !pinned.isEmpty {
+            final.sort { (a, b) in
+                let aP = a.bundleID.map { pinned.contains($0) } ?? false
+                let bP = b.bundleID.map { pinned.contains($0) } ?? false
+                return aP && !bP
+            }
         }
         WindowMRU.purge(keeping: Set(final.map { $0.id }))
         windows = final
@@ -193,6 +225,12 @@ final class SwitchModel: ObservableObject {
         guard list.indices.contains(index) else { return }
         selected = index
         commitAndDismiss?()
+    }
+
+    func selectIndex(_ index: Int) {
+        let list = filteredWindows
+        guard list.indices.contains(index) else { return }
+        selected = index
     }
 
     func closeSelectedApp() {

@@ -176,6 +176,18 @@ struct SettingsView: View {
         }
     }
 
+    private func optimizeForScreen() {
+        guard let screen = NSScreen.main else { return }
+        let visible = screen.visibleFrame
+        let targetWidth = visible.width * 0.75
+        let targetHeight = visible.height * 0.75
+        let scaleByW = targetWidth / 880
+        let scaleByH = targetHeight / 560
+        let s = min(scaleByW, scaleByH)
+        prefs.gridColumns = max(3, min(6, Int(targetWidth / 280)))
+        prefs.thumbnailHeight = max(80, min(300, 130 * s))
+    }
+
     private var pickerTab: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 26) {
@@ -274,8 +286,8 @@ struct SettingsView: View {
                         }
                         Divider().opacity(0.4)
                         row(title: "Thumbnail size",
-                            detail: "Height of each grid tile's thumbnail. \(Int(prefs.thumbnailHeight))pt") {
-                            Slider(value: $prefs.thumbnailHeight, in: 80...200, step: 5)
+                            detail: "Overall picker size. \(Int(prefs.thumbnailHeight))pt") {
+                            Slider(value: $prefs.thumbnailHeight, in: 80...300, step: 5)
                                 .frame(width: 140)
                                 .tint(prefs.accent.color)
                         }
@@ -285,6 +297,14 @@ struct SettingsView: View {
                             Slider(value: $prefs.appIconSize, in: 20...48, step: 2)
                                 .frame(width: 140)
                                 .tint(prefs.accent.color)
+                        }
+                        Divider().opacity(0.4)
+                        row(title: "Optimize for my screen",
+                            detail: "Set columns and thumbnail size to fill about three quarters of your display.") {
+                            Button("Apply") {
+                                optimizeForScreen()
+                            }
+                            .buttonStyle(.bordered)
                         }
                     }
                 }

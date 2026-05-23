@@ -83,6 +83,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.presentNowIfPending(window: window)
             model.pickIndex(index)
         }
+        hotkey.onPickSelectOnly = { [weak self] index in
+            self?.presentNowIfPending(window: window)
+            model.selectIndex(index)
+        }
         hotkey.onFilterAppend = { [weak self] c in
             self?.presentNowIfPending(window: window)
             model.appendFilter(c)
@@ -99,6 +103,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         SwitchPreferences.shared.$verticalList
+            .dropFirst()
+            .sink { [weak window] _ in window?.applyContentSize() }
+            .store(in: &cancellables)
+        SwitchPreferences.shared.$thumbnailHeight
             .dropFirst()
             .sink { [weak window] _ in window?.applyContentSize() }
             .store(in: &cancellables)
@@ -244,7 +252,10 @@ final class SwitcherWindow: NSPanel {
 
     func applyContentSize() {
         let isList = UserDefaults.standard.bool(forKey: SwitchPreferences.verticalListKey)
-        setContentSize(NSSize(width: isList ? 520 : 880, height: 560))
+        let thumb = (UserDefaults.standard.object(forKey: SwitchPreferences.thumbnailHeightKey) as? Double) ?? 130
+        let scale = thumb / 130.0
+        let baseWidth: CGFloat = isList ? 520 : 880
+        setContentSize(NSSize(width: baseWidth * scale, height: 560 * scale))
     }
 
     func present() {

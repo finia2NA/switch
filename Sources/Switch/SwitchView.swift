@@ -9,16 +9,66 @@ struct SwitchView: View {
     @State private var hasMouseMovedSinceOpen = false
     @State private var lastSelectionFromMouse = false
 
+    private var scale: CGFloat { CGFloat(prefs.thumbnailHeight) / 130.0 }
+
+    private func handleHover(_ isHovering: Bool, windowID: CGWindowID, index: Int) {
+        guard !prefs.disableMouse else { return }
+        if isHovering {
+            // Ignore hover until cursor has actually moved 10pt+ since panel opened.
+            // Otherwise a static cursor parked over a tile hijacks the default selection.
+            if !hasMouseMovedSinceOpen {
+                let loc = NSEvent.mouseLocation
+                let dx = loc.x - openMouseLocation.x
+                let dy = loc.y - openMouseLocation.y
+                if hypot(dx, dy) < 10 { return }
+                hasMouseMovedSinceOpen = true
+            }
+            hoveredID = windowID
+            if model.selected != index {
+                lastSelectionFromMouse = true
+                model.selected = index
+            }
+        } else if hoveredID == windowID {
+            hoveredID = nil
+        }
+    }
+
+    private func handleTap(index: Int) {
+        guard !prefs.disableMouse else { return }
+        lastSelectionFromMouse = true
+        model.selected = index
+        model.commitAndDismiss?()
+    }
+
+    private func isPinned(_ window: WindowInfo) -> Bool {
+        window.bundleID.map { prefs.pinnedBundleIDs.contains($0) } ?? false
+    }
+
+    @ViewBuilder
+    private func windowBadge(for window: WindowInfo) -> some View {
+        if window.isMinimized || window.isCrossSpace || window.isWindowless {
+            Text(window.isMinimized ? "MINIMIZED" : (window.isWindowless ? "NO WINDOWS" : (window.spaceLabel?.uppercased() ?? "OTHER SPACE")))
+                .font(.system(size: 9, weight: .semibold))
+                .tracking(0.5)
+                .foregroundStyle(.white.opacity(0.85))
+                .padding(.horizontal, 6)
+                .padding(.vertical, 3)
+                .background(.ultraThinMaterial)
+                .clipShape(Capsule())
+        }
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             if !prefs.verticalList || prefs.verticalShowHeader { header }
             grid
             if prefs.showHintStrip { hintStrip }
         }
+        .frame(width: (prefs.verticalList ? 520 : 880) * scale, height: 560 * scale)
         .background(
-            VisualEffectBackdrop(material: .hudWindow, blendingMode: .behindWindow)
+            .ultraThinMaterial,
+            in: RoundedRectangle(cornerRadius: 12, style: .continuous)
         )
-        .frame(width: prefs.verticalList ? 520 : 880, height: 560)
         .scaleEffect(model.visible ? 1.0 : 0.97)
         .opacity(model.visible ? 1 : 0)
         .animation(.spring(response: 0.18, dampingFraction: 0.86), value: model.visible)
@@ -81,7 +131,7 @@ struct SwitchView: View {
                                 }
                             }
                             .padding(.horizontal, 22)
-                            .padding(.top, 0)
+                            .padding(.top, 4)
                             .padding(.bottom, 12)
                         }
                     }
@@ -111,8 +161,8 @@ struct SwitchView: View {
                 hint("↑↓", "navigate")
             } else {
                 hint("←↑↓→", "navigate")
-                hint("1-9", "pick")
             }
+            hint("1-9", "pick")
             if prefs.stickyMode {
                 hint("⌘W", "close")
                 hint("⌘Q", "quit")
@@ -143,6 +193,25 @@ struct SwitchView: View {
                 WindowZoomer.zoom(window)
             }
         }
+        .opacity(prefs.disableMouse ? 0 : 1)
+        .allowsHitTesting(!prefs.disableMouse)
+    }
+
+    private func pinButton(for window: WindowInfo) -> some View {
+        let bid = window.bundleID
+        let isPinned = bid.map { prefs.pinnedBundleIDs.contains($0) } ?? false
+        return Button {
+            guard let bid else { return }
+            if isPinned { prefs.pinnedBundleIDs.remove(bid) }
+            else { prefs.pinnedBundleIDs.insert(bid) }
+        } label: {
+            Image(systemName: isPinned ? "pin.fill" : "pin")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(isPinned ? prefs.accent.color : Color.white.opacity(0.75))
+                .frame(width: 18, height: 18)
+                .background(Circle().fill(Color.black.opacity(0.35)))
+        }
+        .buttonStyle(.plain)
         .opacity(prefs.disableMouse ? 0 : 1)
         .allowsHitTesting(!prefs.disableMouse)
     }
@@ -216,6 +285,11 @@ struct SwitchView: View {
                         stoplights(for: window).padding(7)
                     }
                 }
+                .overlay(alignment: .topTrailing) {
+                    if !window.isWindowless && (isPinned(window) || hovered) {
+                        pinButton(for: window).padding(7)
+                    }
+                }
                 .animation(.easeOut(duration: 0.18), value: model.thumbnails[window.id] != nil)
 
                 if let icon {
@@ -226,21 +300,11 @@ struct SwitchView: View {
                         .padding(7)
                 }
 
-                if window.isMinimized || window.isCrossSpace || window.isWindowless {
-                    HStack(spacing: 0) {
+                HStack(spacing: 0) {
+                    Spacer()
+                    VStack {
                         Spacer()
-                        VStack {
-                            Spacer()
-                            Text(window.isMinimized ? "MINIMIZED" : (window.isWindowless ? "NO WINDOWS" : (window.spaceLabel?.uppercased() ?? "OTHER SPACE")))
-                                .font(.system(size: 9, weight: .semibold))
-                                .tracking(0.5)
-                                .foregroundStyle(.white.opacity(0.85))
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 3)
-                                .background(.ultraThinMaterial)
-                                .clipShape(Capsule())
-                                .padding(7)
-                        }
+                        windowBadge(for: window).padding(7)
                     }
                 }
             }
@@ -264,58 +328,10 @@ struct SwitchView: View {
             .padding(.horizontal, 2)
         }
         .padding(9)
-        .background(
-            ZStack {
-                if hovered && !selected {
-                    Color.white.opacity(0.06)
-                }
-                if selected {
-                    SwitchPreferences.shared.accent.color.opacity(0.22)
-                        .matchedGeometryEffect(id: "selectionBG", in: selectionNS)
-                }
-            }
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
-        .overlay(
-            ZStack {
-                if selected {
-                    RoundedRectangle(cornerRadius: 9, style: .continuous)
-                        .stroke(SwitchPreferences.shared.accent.color.opacity(0.7), lineWidth: 1)
-                        .matchedGeometryEffect(id: "selectionRing", in: selectionNS)
-                }
-            }
-        )
-        .shadow(color: .black.opacity(selected ? 0.22 : 0), radius: 12, x: 0, y: 4)
-        .animation(.spring(response: 0.22, dampingFraction: 0.85), value: model.selected)
-        .animation(.easeOut(duration: 0.10), value: hoveredID)
+        .modifier(SelectionChrome(selected: selected, hovered: hovered, cornerRadius: 9, accent: prefs.accent.color, namespace: selectionNS, selectedValue: model.selected))
         .contentShape(Rectangle())
-        .onHover { isHovering in
-            guard !SwitchPreferences.shared.disableMouse else { return }
-            if isHovering {
-                // Ignore hover until cursor has actually moved 10pt+ since panel opened.
-                // Otherwise a static cursor parked over a tile hijacks the default selection.
-                if !hasMouseMovedSinceOpen {
-                    let loc = NSEvent.mouseLocation
-                    let dx = loc.x - openMouseLocation.x
-                    let dy = loc.y - openMouseLocation.y
-                    if hypot(dx, dy) < 10 { return }
-                    hasMouseMovedSinceOpen = true
-                }
-                hoveredID = window.id
-                if model.selected != index {
-                    lastSelectionFromMouse = true
-                    model.selected = index
-                }
-            } else if hoveredID == window.id {
-                hoveredID = nil
-            }
-        }
-        .onTapGesture {
-            guard !SwitchPreferences.shared.disableMouse else { return }
-            lastSelectionFromMouse = true
-            model.selected = index
-            model.commitAndDismiss?()
-        }
+        .onHover { handleHover($0, windowID: window.id, index: index) }
+        .onTapGesture { handleTap(index: index) }
     }
 
     private func listRow(window: WindowInfo, index: Int) -> some View {
@@ -351,16 +367,11 @@ struct SwitchView: View {
                 stoplights(for: window)
                     .opacity(hovered ? 1 : 0.45)
             }
-            if window.isMinimized || window.isCrossSpace || window.isWindowless {
-                Text(window.isMinimized ? "MINIMIZED" : (window.isWindowless ? "NO WINDOWS" : (window.spaceLabel?.uppercased() ?? "OTHER SPACE")))
-                    .font(.system(size: 9, weight: .semibold))
-                    .tracking(0.5)
-                    .foregroundStyle(.white.opacity(0.85))
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 3)
-                    .background(.ultraThinMaterial)
-                    .clipShape(Capsule())
+            if !window.isWindowless && (isPinned(window) || hovered) {
+                pinButton(for: window)
+                    .opacity(hovered ? 1 : 0.8)
             }
+            windowBadge(for: window)
             if prefs.verticalShowPreview {
                 Group {
                     if let img = model.thumbnails[window.id] {
@@ -379,56 +390,10 @@ struct SwitchView: View {
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            ZStack {
-                if hovered && !selected {
-                    Color.white.opacity(0.06)
-                }
-                if selected {
-                    accent.opacity(0.22)
-                        .matchedGeometryEffect(id: "selectionBG", in: selectionNS)
-                }
-            }
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .overlay(
-            ZStack {
-                if selected {
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .stroke(accent.opacity(0.7), lineWidth: 1)
-                        .matchedGeometryEffect(id: "selectionRing", in: selectionNS)
-                }
-            }
-        )
-        .shadow(color: .black.opacity(selected ? 0.18 : 0), radius: 8, x: 0, y: 3)
-        .animation(.spring(response: 0.22, dampingFraction: 0.85), value: model.selected)
-        .animation(.easeOut(duration: 0.10), value: hoveredID)
+        .modifier(SelectionChrome(selected: selected, hovered: hovered, cornerRadius: 8, accent: prefs.accent.color, namespace: selectionNS, selectedValue: model.selected))
         .contentShape(Rectangle())
-        .onHover { isHovering in
-            guard !prefs.disableMouse else { return }
-            if isHovering {
-                if !hasMouseMovedSinceOpen {
-                    let loc = NSEvent.mouseLocation
-                    let dx = loc.x - openMouseLocation.x
-                    let dy = loc.y - openMouseLocation.y
-                    if hypot(dx, dy) < 10 { return }
-                    hasMouseMovedSinceOpen = true
-                }
-                hoveredID = window.id
-                if model.selected != index {
-                    lastSelectionFromMouse = true
-                    model.selected = index
-                }
-            } else if hoveredID == window.id {
-                hoveredID = nil
-            }
-        }
-        .onTapGesture {
-            guard !prefs.disableMouse else { return }
-            lastSelectionFromMouse = true
-            model.selected = index
-            model.commitAndDismiss?()
-        }
+        .onHover { handleHover($0, windowID: window.id, index: index) }
+        .onTapGesture { handleTap(index: index) }
     }
 
     private func appIcon(for pid: pid_t) -> NSImage? {
@@ -439,4 +404,40 @@ struct SwitchView: View {
     }
 
     private static var iconCache: [pid_t: NSImage] = [:]
+}
+
+private struct SelectionChrome: ViewModifier {
+    let selected: Bool
+    let hovered: Bool
+    let cornerRadius: CGFloat
+    let accent: Color
+    let namespace: Namespace.ID
+    let selectedValue: Int
+
+    func body(content: Content) -> some View {
+        content
+            .background(
+                ZStack {
+                    if hovered && !selected {
+                        Color.white.opacity(0.06)
+                    }
+                    if selected {
+                        accent.opacity(0.22)
+                            .matchedGeometryEffect(id: "selectionBG", in: namespace)
+                    }
+                }
+            )
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .overlay(
+                ZStack {
+                    if selected {
+                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                            .stroke(accent.opacity(0.7), lineWidth: 1)
+                            .matchedGeometryEffect(id: "selectionRing", in: namespace)
+                    }
+                }
+            )
+            .animation(.spring(response: 0.22, dampingFraction: 0.85), value: selectedValue)
+            .animation(.easeOut(duration: 0.10), value: hovered)
+    }
 }

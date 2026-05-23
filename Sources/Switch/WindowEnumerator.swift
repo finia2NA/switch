@@ -12,6 +12,7 @@ struct WindowInfo: Identifiable, Hashable {
     var isMinimized: Bool = false
     var spaceLabel: String?
     var isWindowless: Bool = false
+    var bundleID: String?
 }
 
 enum WindowEnumerator {
@@ -163,7 +164,7 @@ enum WindowEnumerator {
             if seenIDs.contains(id) { continue }
             seenIDs.insert(id)
             if scope == .currentApp, let f = frontmostPID, pid != f { continue }
-            out.append(WindowInfo(id: id, pid: pid, appName: appName, title: title, bounds: bounds))
+            out.append(WindowInfo(id: id, pid: pid, appName: appName, title: title, bounds: bounds, bundleID: app?.bundleIdentifier))
         }
         return out
     }

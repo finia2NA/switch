@@ -15,6 +15,7 @@ final class HotkeyManager {
     var onHideSelected: (() -> Void)?
     var onNavigate: ((Direction) -> Void)?
     var onPickIndex: ((Int) -> Void)?
+    var onPickSelectOnly: ((Int) -> Void)?
     var onFilterAppend: ((Character) -> Void)?
     var onFilterBackspace: (() -> Void)?
     var onStickyToggle: (() -> Void)?
@@ -249,8 +250,10 @@ final class HotkeyManager {
                     return nil
                 }
                 if let index = digitIndex(for: kc) {
+                    let chain = cmd
                     DispatchQueue.main.async { [weak self] in
-                        self?.onPickIndex?(index)
+                        if chain { self?.onPickSelectOnly?(index) }
+                        else { self?.onPickIndex?(index) }
                     }
                     return nil
                 }
