@@ -14,6 +14,10 @@ Or [download the latest .dmg](https://switch-dev.sanyamgarg.com).
 
 Notarized by Apple. macOS 14+. Free.
 
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=Sanyam-G/switch&type=Date)](https://www.star-history.com/#Sanyam-G/switch&Date)
+
 ## Uninstall
 
 ```
@@ -55,10 +59,6 @@ Built-in. Daily background check. Settings → About → Check for Updates for m
 ## Roadmap
 
 [switch-dev.sanyamgarg.com/development](https://switch-dev.sanyamgarg.com/development/).
-
-## Star History
-
-[![Star History Chart](https://api.star-history.com/svg?repos=Sanyam-G/switch&type=Date)](https://www.star-history.com/#Sanyam-G/switch&Date)
 
 ## License
 
