@@ -9,6 +9,7 @@ final class SwitchModel: ObservableObject {
     @Published var visible: Bool = false
     @Published var thumbnails: [CGWindowID: NSImage] = [:]
     @Published var filterText: String = ""
+    @Published var panelSize = CGSize(width: 880, height: 560)
 
     /// Set by AppDelegate so the view can request a commit + window dismiss from a mouse click.
     var commitAndDismiss: (() -> Void)?

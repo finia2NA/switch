@@ -176,18 +176,6 @@ struct SettingsView: View {
         }
     }
 
-    private func optimizeForScreen() {
-        guard let screen = NSScreen.main else { return }
-        let visible = screen.visibleFrame
-        let targetWidth = visible.width * 0.5
-        let targetHeight = visible.height * 0.5
-        let scaleByW = targetWidth / 880
-        let scaleByH = targetHeight / 560
-        let s = min(scaleByW, scaleByH)
-        prefs.gridColumns = max(3, min(6, Int(targetWidth / 280)))
-        prefs.thumbnailHeight = max(80, min(300, 130 * s))
-    }
-
     private var pickerTab: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 26) {
@@ -299,10 +287,10 @@ struct SettingsView: View {
                                 .tint(prefs.accent.color)
                         }
                         Divider().opacity(0.4)
-                        row(title: "Optimize for my screen",
-                            detail: "Set columns and thumbnail size to fill about half of your display.") {
-                            Button("Apply") {
-                                optimizeForScreen()
+                        row(title: "Reset sizing",
+                            detail: "Restore columns, thumbnail size, and app icon size.") {
+                            Button("Reset") {
+                                resetSizing()
                             }
                             .buttonStyle(.bordered)
                         }
@@ -331,6 +319,12 @@ struct SettingsView: View {
             }
             .padding(24)
         }
+    }
+
+    private func resetSizing() {
+        prefs.gridColumns = SwitchPreferences.defaultGridColumns
+        prefs.thumbnailHeight = SwitchPreferences.defaultThumbnailHeight
+        prefs.appIconSize = SwitchPreferences.defaultAppIconSize
     }
 
     private var stickyToggleRow: some View {

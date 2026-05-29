@@ -9,8 +9,6 @@ struct SwitchView: View {
     @State private var hasMouseMovedSinceOpen = false
     @State private var lastSelectionFromMouse = false
 
-    private var scale: CGFloat { CGFloat(prefs.thumbnailHeight) / 130.0 }
-
     private func handleHover(_ isHovering: Bool, windowID: CGWindowID, index: Int) {
         guard !prefs.disableMouse else { return }
         if isHovering {
@@ -58,18 +56,29 @@ struct SwitchView: View {
         }
     }
 
+    private var showHeader: Bool {
+        !prefs.verticalList || prefs.verticalShowHeader || !model.filterText.isEmpty
+    }
+
+    private var panelAnimation: Animation {
+        prefs.verticalList
+            ? .spring(response: 0.22, dampingFraction: 0.9)
+            : .spring(response: 0.18, dampingFraction: 0.86)
+    }
+
     var body: some View {
         VStack(spacing: 0) {
-            if !prefs.verticalList || prefs.verticalShowHeader { header }
+            if showHeader { header }
             grid
             if prefs.showHintStrip { hintStrip }
         }
-        .frame(width: (prefs.verticalList ? 520 : 880) * scale, height: 560 * scale)
+        .frame(width: model.panelSize.width, height: model.panelSize.height)
         .background(.ultraThinMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .scaleEffect(model.visible ? 1.0 : 0.97)
+        .offset(y: model.visible ? 0 : (prefs.verticalList ? -5 : 0))
         .opacity(model.visible ? 1 : 0)
-        .animation(.spring(response: 0.18, dampingFraction: 0.86), value: model.visible)
+        .animation(panelAnimation, value: model.visible)
         .onChange(of: model.visible) { _, isVisible in
             if isVisible {
                 openMouseLocation = NSEvent.mouseLocation
@@ -106,9 +115,7 @@ struct SwitchView: View {
         ZStack {
             let list = model.filteredWindows
             if list.isEmpty {
-                Text(model.filterText.isEmpty ? "No windows" : "No matches")
-                    .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
+                emptyState
             } else {
                 ScrollViewReader { proxy in
                     ScrollView(.vertical, showsIndicators: false) {
@@ -120,6 +127,7 @@ struct SwitchView: View {
                                 }
                             }
                             .padding(.horizontal, 14)
+                            .padding(.top, showHeader ? 0 : 14)
                             .padding(.bottom, 10)
                         } else {
                             LazyVGrid(columns: gridColumns, spacing: 14) {
@@ -152,26 +160,41 @@ struct SwitchView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
+    private var emptyState: some View {
+        VStack(spacing: 8) {
+            Image(systemName: model.filterText.isEmpty ? "rectangle.stack" : "magnifyingglass")
+                .font(.system(size: 20, weight: .medium))
+                .foregroundStyle(.tertiary)
+            Text(model.filterText.isEmpty ? "No windows" : "No matches")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(.secondary)
+        }
+        .transition(.scale(scale: 0.98).combined(with: .opacity))
+    }
+
     private var hintStrip: some View {
         HStack(spacing: 14) {
             hint("↵", "switch")
             if prefs.verticalList {
-                hint("↑↓", "navigate")
+                hint("↑↓", "nav")
+                hint("1-9", "pick")
+                hint("type", "filter")
+                hint("esc", "cancel")
             } else {
                 hint("←↑↓→", "navigate")
+                hint("1-9", "pick")
+                if prefs.stickyMode {
+                    hint("⌘W", "close")
+                    hint("⌘Q", "quit")
+                    hint("⌘H", "hide")
+                } else {
+                    hint("⇧⌘W", "close")
+                    hint("⇧⌘Q", "quit")
+                    hint("⇧⌘H", "hide")
+                }
+                hint("type", "filter")
+                hint("esc", "cancel")
             }
-            hint("1-9", "pick")
-            if prefs.stickyMode {
-                hint("⌘W", "close")
-                hint("⌘Q", "quit")
-                hint("⌘H", "hide")
-            } else {
-                hint("⇧⌘W", "close")
-                hint("⇧⌘Q", "quit")
-                hint("⇧⌘H", "hide")
-            }
-            hint("type", "filter")
-            hint("esc", "cancel")
             Spacer()
         }
         .padding(.horizontal, 22)
@@ -245,6 +268,7 @@ struct SwitchView: View {
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
         }
+        .fixedSize()
     }
 
     private var gridColumns: [GridItem] {
@@ -273,6 +297,8 @@ struct SwitchView: View {
                             .aspectRatio(contentMode: .fit)
                             .frame(width: 56, height: 56)
                             .opacity(0.55)
+                            .scaleEffect(selected ? 1.05 : 1.0)
+                            .animation(.spring(response: 0.20, dampingFraction: 0.82), value: selected)
                     }
                 }
                 .frame(maxWidth: .infinity)
@@ -294,8 +320,10 @@ struct SwitchView: View {
                     Image(nsImage: icon)
                         .resizable()
                         .frame(width: prefs.appIconSize, height: prefs.appIconSize)
+                        .scaleEffect(selected ? 1.06 : 1.0)
                         .shadow(color: .black.opacity(0.35), radius: 4, x: 0, y: 1)
                         .padding(7)
+                        .animation(.spring(response: 0.20, dampingFraction: 0.82), value: selected)
                 }
 
                 HStack(spacing: 0) {
@@ -336,7 +364,6 @@ struct SwitchView: View {
         let selected = index == model.selected
         let hovered = hoveredID == window.id
         let icon = appIcon(for: window.pid)
-        let accent = prefs.accent.color
 
         return HStack(spacing: 11) {
             ZStack {
@@ -344,6 +371,8 @@ struct SwitchView: View {
                     Image(nsImage: icon)
                         .resizable()
                         .frame(width: 32, height: 32)
+                        .scaleEffect(selected ? 1.08 : 1.0)
+                        .animation(.spring(response: 0.20, dampingFraction: 0.82), value: selected)
                 } else {
                     Color.clear.frame(width: 32, height: 32)
                 }
