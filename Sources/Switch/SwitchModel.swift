@@ -117,6 +117,10 @@ final class SwitchModel: ObservableObject {
         visible = true
         let liveIDs = Set(final.filter { !$0.isWindowless }.map { $0.id })
         let thumbTargets = final.filter { !$0.isWindowless }
+        let capturePIDs = Set(thumbTargets.map { $0.pid })
+        Task.detached(priority: .utility) {
+            AXWindowCache.capture(pids: capturePIDs)
+        }
         Task {
             if #available(macOS 14.0, *) {
                 // Don't full-purge — pre-warmed thumbs are valid as long as the window still exists.
@@ -184,6 +188,14 @@ final class SwitchModel: ObservableObject {
         let frontmost = NSWorkspace.shared.frontmostApplication?.processIdentifier
         let ws = WindowEnumerator.currentWindows(scope: .allWindows, frontmostPID: frontmost)
         let liveIDs = Set(ws.map { $0.id })
+        // Keep AX elements for every visible window on hand: once a window goes
+        // fullscreen on its own Space, Chromium apps stop enumerating it via AX
+        // and this cached element is the only way to focus it.
+        let capturePIDs = Set(ws.map { $0.pid })
+        Task.detached(priority: .utility) {
+            AXWindowCache.purgeDead()
+            AXWindowCache.capture(pids: capturePIDs)
+        }
         await WindowSnapshotter.shared.purge(keeping: liveIDs)
         await withTaskGroup(of: Void.self) { group in
             for w in ws {

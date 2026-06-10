@@ -26,6 +26,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var focusTracker: FocusTracker?
     private var hotkeyStarted = false
     private var focusTrackerStarted = false
+    #if DEBUG
+    private let debugHarness = DebugFocusHarness()
+    #endif
     private var permsTimer: Timer?
     private var armedWatchdog: Timer?
     private var clickAwayMonitor: Any?
@@ -35,6 +38,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
+        #if DEBUG
+        debugHarness.start()
+        #endif
 
         let model = SwitchModel()
         let window = SwitcherWindow(model: model)
@@ -214,6 +220,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard !hotkeyStarted else { return }
         hotkey?.start()
         hotkeyStarted = true
+        // Seed the AX window cache right away — the prewarm timer only runs
+        // after the first arm, and a window that goes fullscreen before then
+        // would otherwise be unfocusable in Chromium apps.
+        let frontmost = NSWorkspace.shared.frontmostApplication?.processIdentifier
+        let pids = Set(WindowEnumerator.currentWindows(scope: .allWindows, frontmostPID: frontmost).map { $0.pid })
+        Task.detached(priority: .utility) {
+            AXWindowCache.capture(pids: pids)
+        }
     }
 
     private func startFocusTrackerIfNeeded() {
