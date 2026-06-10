@@ -21,7 +21,11 @@ enum WindowFocuser {
             }
             return
         }
-        if window.isCrossSpace {
+        // Fullscreen windows own their Space — CGSMoveWindowsToManagedSpace can't
+        // pull them into the current one (it either no-ops or detaches the window
+        // from its Space). Making the target the app's main+focused window and
+        // activating lets macOS switch to the fullscreen Space itself.
+        if window.isCrossSpace && !window.isFullscreenSpace {
             let cid = CGSMainConnectionID()
             let currentSpace = CGSGetActiveSpace(cid)
             let ids = [NSNumber(value: window.id)] as CFArray
@@ -37,6 +41,10 @@ enum WindowFocuser {
            let axWindows = ref as? [AXUIElement],
            let target = bestMatch(for: window, in: axWindows) ?? axWindows.first {
             AXUIElementSetAttributeValue(target, kAXMainAttribute as CFString, kCFBooleanTrue)
+            // Focused-window matters for apps with several same-titled windows
+            // across fullscreen Spaces (Chrome): activate follows the focused
+            // window's Space, not just the main one.
+            AXUIElementSetAttributeValue(appAX, kAXFocusedWindowAttribute as CFString, target)
             AXUIElementPerformAction(target, kAXRaiseAction as CFString)
         }
 
