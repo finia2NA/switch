@@ -9,6 +9,10 @@ final class SettingsModel: ObservableObject {
     @Published var allWindows: HotkeyBinding = HotkeyConfig.shared.allWindows
     @Published var currentApp: HotkeyBinding = HotkeyConfig.shared.currentApp
     @Published var stickyToggle: HotkeyBinding? = HotkeyConfig.shared.stickyToggle
+    @Published var allWindowsForward: HotkeyBinding = HotkeyConfig.shared.allWindowsForward
+    @Published var allWindowsBackward: HotkeyBinding = HotkeyConfig.shared.allWindowsBackward
+    @Published var currentAppForward: HotkeyBinding = HotkeyConfig.shared.currentAppForward
+    @Published var currentAppBackward: HotkeyBinding = HotkeyConfig.shared.currentAppBackward
 
     init() { refresh() }
 
@@ -19,6 +23,10 @@ final class SettingsModel: ObservableObject {
         allWindows = HotkeyConfig.shared.allWindows
         currentApp = HotkeyConfig.shared.currentApp
         stickyToggle = HotkeyConfig.shared.stickyToggle
+        allWindowsForward = HotkeyConfig.shared.allWindowsForward
+        allWindowsBackward = HotkeyConfig.shared.allWindowsBackward
+        currentAppForward = HotkeyConfig.shared.currentAppForward
+        currentAppBackward = HotkeyConfig.shared.currentAppBackward
     }
 
     func setLaunchAtLogin(_ enabled: Bool) {
@@ -50,6 +58,26 @@ final class SettingsModel: ObservableObject {
     func updateStickyToggle(_ b: HotkeyBinding?) {
         HotkeyConfig.shared.stickyToggle = b
         stickyToggle = b
+    }
+
+    func updateAllWindowsForward(_ b: HotkeyBinding) {
+        HotkeyConfig.shared.allWindowsForward = b
+        allWindowsForward = b
+    }
+
+    func updateAllWindowsBackward(_ b: HotkeyBinding) {
+        HotkeyConfig.shared.allWindowsBackward = b
+        allWindowsBackward = b
+    }
+
+    func updateCurrentAppForward(_ b: HotkeyBinding) {
+        HotkeyConfig.shared.currentAppForward = b
+        currentAppForward = b
+    }
+
+    func updateCurrentAppBackward(_ b: HotkeyBinding) {
+        HotkeyConfig.shared.currentAppBackward = b
+        currentAppBackward = b
     }
 
     func resetHotkeys() {
@@ -143,12 +171,26 @@ struct SettingsView: View {
 
                 section("Hotkeys") {
                     VStack(alignment: .leading, spacing: 12) {
-                        hotkeyRow(label: "All windows", binding: model.allWindows) { b in
+                        hotkeyRow(label: "All windows summon", binding: model.allWindows) { b in
                             apply(b) { model.updateAllWindows($0) }
                         }
-                        hotkeyRow(label: "Current app", binding: model.currentApp) { b in
+                        navigationKeyRow(label: "All windows forward", binding: model.allWindowsForward) { b in
+                            applyNavigation(b) { model.updateAllWindowsForward($0) }
+                        }
+                        navigationKeyRow(label: "All windows backward", binding: model.allWindowsBackward) { b in
+                            applyNavigation(b) { model.updateAllWindowsBackward($0) }
+                        }
+                        Divider().opacity(0.4)
+                        hotkeyRow(label: "Current app summon", binding: model.currentApp) { b in
                             apply(b) { model.updateCurrentApp($0) }
                         }
+                        navigationKeyRow(label: "Current app forward", binding: model.currentAppForward) { b in
+                            applyNavigation(b) { model.updateCurrentAppForward($0) }
+                        }
+                        navigationKeyRow(label: "Current app backward", binding: model.currentAppBackward) { b in
+                            applyNavigation(b) { model.updateCurrentAppBackward($0) }
+                        }
+                        Divider().opacity(0.4)
                         stickyToggleRow
                         if let msg = rejectMessage {
                             Text(msg)
@@ -156,7 +198,7 @@ struct SettingsView: View {
                                 .foregroundStyle(.red)
                         }
                         HStack {
-                            Text("Sticky: ⌘W/Q/H · Hold: ⇧⌘W/Q/H · ⇧ reverse")
+                            Text("Sticky: ⌘W/Q/H · Hold: ⇧⌘W/Q/H")
                                 .font(.system(size: 11))
                                 .foregroundStyle(.secondary)
                             Spacer()
@@ -338,14 +380,14 @@ struct SettingsView: View {
         HStack(spacing: 12) {
             Text("Sticky toggle")
                 .font(.system(size: 13, weight: .medium))
-                .frame(width: 100, alignment: .leading)
+                .frame(width: 138, alignment: .leading)
             KeyRecorderField(
-                initialBinding: model.stickyToggle ?? HotkeyBinding(keyCode: 0, modifiersRaw: 0),
+                initialBinding: model.stickyToggle ?? .empty,
                 onCapture: { b in apply(b) { model.updateStickyToggle($0) } },
                 accent: prefs.accent.color,
                 placeholder: "Not set"
             )
-            .frame(width: 180, height: 28)
+            .frame(width: 160, height: 28)
             if model.stickyToggle != nil {
                 Button("Clear") { model.updateStickyToggle(nil) }
                     .controlSize(.small)
@@ -587,9 +629,25 @@ struct SettingsView: View {
         HStack(spacing: 12) {
             Text(label)
                 .font(.system(size: 13, weight: .medium))
-                .frame(width: 100, alignment: .leading)
+                .frame(width: 138, alignment: .leading)
             KeyRecorderField(initialBinding: binding, onCapture: onCapture, accent: prefs.accent.color)
-                .frame(width: 180, height: 28)
+                .frame(width: 160, height: 28)
+            Spacer()
+        }
+    }
+
+    private func navigationKeyRow(label: String, binding: HotkeyBinding, onCapture: @escaping (HotkeyBinding) -> Void) -> some View {
+        HStack(spacing: 12) {
+            Text(label)
+                .font(.system(size: 13, weight: .medium))
+                .frame(width: 138, alignment: .leading)
+            KeyRecorderField(
+                initialBinding: binding,
+                onCapture: onCapture,
+                accent: prefs.accent.color,
+                allowModifierOnly: true
+            )
+            .frame(width: 160, height: 28)
             Spacer()
         }
     }
@@ -627,6 +685,15 @@ struct SettingsView: View {
 
     private func apply(_ b: HotkeyBinding, save: (HotkeyBinding) -> Void) {
         if let msg = HotkeyValidator.reject(keyCode: b.keyCode, flags: b.cgFlags) {
+            rejectMessage = msg
+        } else {
+            rejectMessage = nil
+            save(b)
+        }
+    }
+
+    private func applyNavigation(_ b: HotkeyBinding, save: (HotkeyBinding) -> Void) {
+        if let msg = NavigationKeyValidator.reject(keyCode: b.keyCode, flags: b.cgFlags) {
             rejectMessage = msg
         } else {
             rejectMessage = nil
@@ -702,6 +769,7 @@ struct KeyRecorderField: NSViewRepresentable {
     let onCapture: (HotkeyBinding) -> Void
     var accent: Color = .accentColor
     var placeholder: String = "—"
+    var allowModifierOnly: Bool = false
 
     func makeNSView(context: Context) -> KeyRecorderNSView {
         let v = KeyRecorderNSView()
@@ -709,6 +777,7 @@ struct KeyRecorderField: NSViewRepresentable {
         v.onCapture = onCapture
         v.accentNSColor = NSColor(accent)
         v.placeholder = placeholder
+        v.allowModifierOnly = allowModifierOnly
         return v
     }
 
@@ -719,6 +788,7 @@ struct KeyRecorderField: NSViewRepresentable {
         view.onCapture = onCapture
         view.accentNSColor = NSColor(accent)
         view.placeholder = placeholder
+        view.allowModifierOnly = allowModifierOnly
     }
 }
 
@@ -726,10 +796,13 @@ final class KeyRecorderNSView: NSView {
     var onCapture: ((HotkeyBinding) -> Void)?
     var accentNSColor: NSColor = .controlAccentColor { didSet { redraw() } }
     var placeholder: String = "—" { didSet { redraw() } }
+    var allowModifierOnly: Bool = false
     private let label = NSTextField(labelWithString: "")
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
     private var recording = false { didSet { redraw() } }
+    private var activeSidedModifiers = Set<SidedModifierKey>()
+    private var pendingModifierOnly = Set<SidedModifierKey>() { didSet { redraw() } }
 
     var binding: HotkeyBinding = .defaultAllWindows {
         didSet { redraw() }
@@ -773,6 +846,8 @@ final class KeyRecorderNSView: NSView {
     // Session tap at head fires first, swallows.
     private func startRecording() {
         recording = true
+        activeSidedModifiers = []
+        pendingModifierOnly = []
         window?.makeFirstResponder(self)
         let mask = CGEventMask((1 << CGEventType.keyDown.rawValue) | (1 << CGEventType.flagsChanged.rawValue))
         let info = Unmanaged.passUnretained(self).toOpaque()
@@ -794,18 +869,42 @@ final class KeyRecorderNSView: NSView {
         if let src = runLoopSource { CFRunLoopRemoveSource(CFRunLoopGetCurrent(), src, .commonModes) }
         eventTap = nil
         runLoopSource = nil
+        activeSidedModifiers = []
+        pendingModifierOnly = []
         recording = false
     }
 
     fileprivate func capture(_ type: CGEventType, _ event: CGEvent) -> Unmanaged<CGEvent>? {
-        if type == .flagsChanged { return nil }
-        guard type == .keyDown else { return Unmanaged.passUnretained(event) }
+        let mods: CGEventFlags = [.maskCommand, .maskAlternate, .maskControl, .maskShift]
         let kc = CGKeyCode(event.getIntegerValueField(.keyboardEventKeycode))
+        if type == .flagsChanged {
+            updateSidedModifiers(changedKeyCode: kc, flags: event.flags)
+            guard allowModifierOnly else { return nil }
+            if activeSidedModifiers.isEmpty, !pendingModifierOnly.isEmpty {
+                let b = HotkeyBinding.modifierOnly(pendingModifierOnly)
+                DispatchQueue.main.async { [weak self] in
+                    guard let self else { return }
+                    self.binding = b
+                    self.onCapture?(b)
+                    self.stopRecording(commit: true)
+                }
+            } else if !activeSidedModifiers.isEmpty {
+                pendingModifierOnly.formUnion(activeSidedModifiers)
+            }
+            return nil
+        }
+        guard type == .keyDown else { return Unmanaged.passUnretained(event) }
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
             if kc != 53 {
-                let mods: CGEventFlags = [.maskCommand, .maskAlternate, .maskControl, .maskShift]
-                let b = HotkeyBinding(keyCode: UInt16(kc), modifiersRaw: event.flags.intersection(mods).rawValue)
+                let genericFlags = self.activeSidedModifiers.isEmpty
+                    ? event.flags.intersection(mods)
+                    : SidedModifierKey.flags(for: self.activeSidedModifiers)
+                let b = HotkeyBinding(
+                    keyCode: UInt16(kc),
+                    modifiersRaw: genericFlags.rawValue,
+                    sidedModifiers: self.activeSidedModifiers.isEmpty ? nil : self.activeSidedModifiers
+                )
                 self.binding = b
                 self.onCapture?(b)
             }
@@ -816,12 +915,16 @@ final class KeyRecorderNSView: NSView {
 
     private func redraw() {
         if recording {
-            label.stringValue = "Press a key…"
+            if allowModifierOnly && !pendingModifierOnly.isEmpty {
+                label.stringValue = "Release \(HotkeyBinding.modifierOnly(pendingModifierOnly).displayString)"
+            } else {
+                label.stringValue = "Press a key…"
+            }
             label.textColor = .secondaryLabelColor
             layer?.borderColor = accentNSColor.cgColor
             layer?.backgroundColor = accentNSColor.withAlphaComponent(0.10).cgColor
         } else {
-            if binding.keyCode == 0 && binding.modifiersRaw == 0 {
+            if binding.isEmpty {
                 label.stringValue = placeholder
                 label.textColor = .tertiaryLabelColor
             } else {
@@ -830,6 +933,19 @@ final class KeyRecorderNSView: NSView {
             }
             layer?.borderColor = NSColor.separatorColor.cgColor
             layer?.backgroundColor = NSColor.controlBackgroundColor.withAlphaComponent(0.6).cgColor
+        }
+    }
+
+    private func updateSidedModifiers(changedKeyCode: CGKeyCode, flags: CGEventFlags) {
+        if let modifier = SidedModifierKey(keyCode: changedKeyCode) {
+            if activeSidedModifiers.contains(modifier) {
+                activeSidedModifiers.remove(modifier)
+            } else {
+                activeSidedModifiers.insert(modifier)
+            }
+        }
+        if flags.intersection(HotkeyBinding.allModifiers).isEmpty {
+            activeSidedModifiers.removeAll()
         }
     }
 }

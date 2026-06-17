@@ -26,6 +26,8 @@ final class HotkeyManager {
     private var armed: Mode?
     private var armedAt: Date?
     private var advanced = false
+    private var previousFlags: CGEventFlags = []
+    private var activeSidedModifiers = Set<SidedModifierKey>()
     private static let stickyQuickTapMS: Double = 200
     private var wakeToken: NSObjectProtocol?
     private var screensWakeToken: NSObjectProtocol?
@@ -147,32 +149,68 @@ final class HotkeyManager {
         let cmd = flags.contains(.maskCommand)
         let shift = flags.contains(.maskShift)
         let kc = CGKeyCode(event.getIntegerValueField(.keyboardEventKeycode))
+        let priorFlags = previousFlags
+        let priorSidedModifiers = activeSidedModifiers
+        if type == .flagsChanged {
+            previousFlags = flags
+            updateSidedModifiers(changedKeyCode: kc, flags: flags)
+        }
 
         if type == .keyDown {
             let allBinding = HotkeyConfig.shared.allWindows
             let appBinding = HotkeyConfig.shared.currentApp
 
             if let stickyBinding = HotkeyConfig.shared.stickyToggle,
-               stickyBinding.matchesTrigger(keyCode: kc, flags: flags) {
+               stickyBinding.matchesTrigger(keyCode: kc, flags: flags, activeSidedModifiers: activeSidedModifiers) {
                 DispatchQueue.main.async { [weak self] in
                     self?.onStickyToggle?()
                 }
                 return nil
             }
 
-            if allBinding.matchesTrigger(keyCode: kc, flags: flags) {
+            if let armed {
+                let armBinding = binding(for: armed)
+                let forwardBinding = forwardBinding(for: armed)
+                let backwardBinding = backwardBinding(for: armed)
+                if matchesNavigationKey(
+                    backwardBinding,
+                    keyCode: kc,
+                    flags: flags,
+                    activeSidedModifiers: activeSidedModifiers,
+                    armBinding: armBinding
+                ) {
+                    DispatchQueue.main.async { [weak self] in
+                        self?.advanced = true
+                        self?.onAdvance?(true)
+                    }
+                    return nil
+                }
+                if matchesNavigationKey(
+                    forwardBinding,
+                    keyCode: kc,
+                    flags: flags,
+                    activeSidedModifiers: activeSidedModifiers,
+                    armBinding: armBinding
+                ) {
+                    DispatchQueue.main.async { [weak self] in
+                        self?.advanced = true
+                        self?.onAdvance?(false)
+                    }
+                    return nil
+                }
+            }
+
+            if allBinding.matchesTrigger(keyCode: kc, flags: flags, activeSidedModifiers: activeSidedModifiers) {
                 DispatchQueue.main.async { [weak self] in
                     guard let self else { return }
                     if armed == nil { armed = .allWindows; armedAt = Date(); advanced = false; onArm?(.allWindows) }
-                    else { advanced = true; onAdvance?(shift) }
                 }
                 return nil
             }
-            if appBinding.matchesTrigger(keyCode: kc, flags: flags) {
+            if appBinding.matchesTrigger(keyCode: kc, flags: flags, activeSidedModifiers: activeSidedModifiers) {
                 DispatchQueue.main.async { [weak self] in
                     guard let self else { return }
                     if armed == nil { armed = .currentApp; armedAt = Date(); advanced = false; onArm?(.currentApp) }
-                    else { advanced = true; onAdvance?(shift) }
                 }
                 return nil
             }
@@ -253,14 +291,47 @@ final class HotkeyManager {
         if type == .flagsChanged {
             let sticky = UserDefaults.standard.bool(forKey: SwitchPreferences.stickyModeKey)
             let quickTap = (armedAt.map { Date().timeIntervalSince($0) * 1000 < Self.stickyQuickTapMS } ?? false) && !advanced
-            if armed == .allWindows && !HotkeyConfig.shared.allWindows.modifiersHeld(flags) {
+            if let armed {
+                let armBinding = binding(for: armed)
+                let forwardBinding = forwardBinding(for: armed)
+                let backwardBinding = backwardBinding(for: armed)
+                if matchesNavigationModifier(
+                    backwardBinding,
+                    flags: flags,
+                    previousFlags: priorFlags,
+                    activeSidedModifiers: activeSidedModifiers,
+                    previousSidedModifiers: priorSidedModifiers,
+                    armBinding: armBinding
+                ) {
+                    DispatchQueue.main.async { [weak self] in
+                        self?.advanced = true
+                        self?.onAdvance?(true)
+                    }
+                    return nil
+                }
+                if matchesNavigationModifier(
+                    forwardBinding,
+                    flags: flags,
+                    previousFlags: priorFlags,
+                    activeSidedModifiers: activeSidedModifiers,
+                    previousSidedModifiers: priorSidedModifiers,
+                    armBinding: armBinding
+                ) {
+                    DispatchQueue.main.async { [weak self] in
+                        self?.advanced = true
+                        self?.onAdvance?(false)
+                    }
+                    return nil
+                }
+            }
+            if armed == .allWindows && !HotkeyConfig.shared.allWindows.modifiersHeld(flags, activeSidedModifiers: activeSidedModifiers) {
                 if !sticky || quickTap {
                     DispatchQueue.main.async { [weak self] in
                         self?.armed = nil
                         self?.onCommit?()
                     }
                 }
-            } else if armed == .currentApp && !HotkeyConfig.shared.currentApp.modifiersHeld(flags) {
+            } else if armed == .currentApp && !HotkeyConfig.shared.currentApp.modifiersHeld(flags, activeSidedModifiers: activeSidedModifiers) {
                 if !sticky || quickTap {
                     DispatchQueue.main.async { [weak self] in
                         self?.armed = nil
@@ -312,5 +383,114 @@ final class HotkeyManager {
 
     private func digitIndex(for kc: CGKeyCode) -> Int? {
         Self.kcDigits.firstIndex(of: kc) ?? Self.kcKeypadDigits.firstIndex(of: kc)
+    }
+
+    private func binding(for mode: Mode) -> HotkeyBinding {
+        switch mode {
+        case .allWindows: return HotkeyConfig.shared.allWindows
+        case .currentApp: return HotkeyConfig.shared.currentApp
+        }
+    }
+
+    private func forwardBinding(for mode: Mode) -> HotkeyBinding {
+        switch mode {
+        case .allWindows: return HotkeyConfig.shared.allWindowsForward
+        case .currentApp: return HotkeyConfig.shared.currentAppForward
+        }
+    }
+
+    private func backwardBinding(for mode: Mode) -> HotkeyBinding {
+        switch mode {
+        case .allWindows: return HotkeyConfig.shared.allWindowsBackward
+        case .currentApp: return HotkeyConfig.shared.currentAppBackward
+        }
+    }
+
+    private func matchesNavigationKey(
+        _ binding: HotkeyBinding,
+        keyCode: CGKeyCode,
+        flags: CGEventFlags,
+        activeSidedModifiers: Set<SidedModifierKey>,
+        armBinding: HotkeyBinding
+    ) -> Bool {
+        guard !binding.isEmpty, !binding.isModifierOnly else { return false }
+        guard CGKeyCode(binding.keyCode) == keyCode else { return false }
+        return navigationModifiersMatch(
+            binding,
+            flags: flags,
+            activeSidedModifiers: activeSidedModifiers,
+            armBinding: armBinding
+        )
+    }
+
+    private func matchesNavigationModifier(
+        _ binding: HotkeyBinding,
+        flags: CGEventFlags,
+        previousFlags: CGEventFlags,
+        activeSidedModifiers: Set<SidedModifierKey>,
+        previousSidedModifiers: Set<SidedModifierKey>,
+        armBinding: HotkeyBinding
+    ) -> Bool {
+        guard binding.isModifierOnly else { return false }
+        if let sidedModifiers = binding.sidedModifiers {
+            guard !sidedModifiers.isEmpty else { return false }
+            return navigationSidedModifiersMatch(sidedModifiers, active: activeSidedModifiers, armBinding: armBinding)
+                && !navigationSidedModifiersMatch(sidedModifiers, active: previousSidedModifiers, armBinding: armBinding)
+        }
+        let required = binding.cgFlags.intersection(HotkeyBinding.allModifiers)
+        guard required.rawValue != 0 else { return false }
+        return navigationFlagsMatch(required, flags: flags, armBinding: armBinding)
+            && !navigationFlagsMatch(required, flags: previousFlags, armBinding: armBinding)
+    }
+
+    private func navigationModifiersMatch(
+        _ binding: HotkeyBinding,
+        flags: CGEventFlags,
+        activeSidedModifiers: Set<SidedModifierKey>,
+        armBinding: HotkeyBinding
+    ) -> Bool {
+        if let sidedModifiers = binding.sidedModifiers {
+            return navigationSidedModifiersMatch(sidedModifiers, active: activeSidedModifiers, armBinding: armBinding)
+        }
+        return navigationFlagsMatch(binding.cgFlags, flags: flags, armBinding: armBinding)
+    }
+
+    private func navigationSidedModifiersMatch(
+        _ required: Set<SidedModifierKey>,
+        active: Set<SidedModifierKey>,
+        armBinding: HotkeyBinding
+    ) -> Bool {
+        let armPrimary = armPrimarySidedModifiers(armBinding)
+        let normalized = active.subtracting(armPrimary)
+        return normalized == required || active == required
+    }
+
+    private func navigationFlagsMatch(_ requiredFlags: CGEventFlags, flags: CGEventFlags, armBinding: HotkeyBinding) -> Bool {
+        let required = requiredFlags.intersection(HotkeyBinding.allModifiers)
+        let armPrimary = armBinding.cgFlags.intersection(HotkeyBinding.primaryModifiers)
+        let raw = flags.intersection(HotkeyBinding.allModifiers)
+        let normalized = raw.subtracting(armPrimary)
+        return normalized == required || raw == required.union(armPrimary)
+    }
+
+    private func armPrimarySidedModifiers(_ armBinding: HotkeyBinding) -> Set<SidedModifierKey> {
+        if let sidedModifiers = armBinding.sidedModifiers {
+            return Set(sidedModifiers.filter(\.isPrimary))
+        }
+        let primaryFlags = armBinding.cgFlags.intersection(HotkeyBinding.primaryModifiers)
+        return SidedModifierKey.sides(matching: primaryFlags)
+    }
+
+    private func updateSidedModifiers(changedKeyCode: CGKeyCode, flags: CGEventFlags) {
+        if let modifier = SidedModifierKey(keyCode: changedKeyCode) {
+            if activeSidedModifiers.contains(modifier) {
+                activeSidedModifiers.remove(modifier)
+            } else {
+                activeSidedModifiers.insert(modifier)
+            }
+        }
+        if flags.intersection(HotkeyBinding.allModifiers).isEmpty {
+            activeSidedModifiers.removeAll()
+        }
     }
 }
