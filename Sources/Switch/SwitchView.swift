@@ -179,11 +179,27 @@ struct SwitchView: View {
         .transition(.scale(scale: 0.98).combined(with: .opacity))
     }
 
+    private var forwardHintKey: String {
+        switch model.mode {
+        case .allWindows: return HotkeyConfig.shared.allWindowsForward.displayString
+        case .currentApp: return HotkeyConfig.shared.currentAppForward.displayString
+        }
+    }
+
+    private var backwardHintKey: String {
+        switch model.mode {
+        case .allWindows: return HotkeyConfig.shared.allWindowsBackward.displayString
+        case .currentApp: return HotkeyConfig.shared.currentAppBackward.displayString
+        }
+    }
+
     private var hintStrip: some View {
         Group {
             if prefs.verticalList {
                 HStack(spacing: 8) {
                     hint("↵", "switch")
+                    hint(forwardHintKey, "forward")
+                    hint(backwardHintKey, "back")
                     compactHint("↑↓", "nav")
                     compactHint("1-9", "pick")
                     actionHint
@@ -194,6 +210,8 @@ struct SwitchView: View {
             } else {
                 HStack(spacing: 14) {
                     hint("↵", "switch")
+                    hint(forwardHintKey, "forward")
+                    hint(backwardHintKey, "back")
                     hint("←↑↓→", "navigate")
                     hint("1-9", "pick")
                     actionHint
